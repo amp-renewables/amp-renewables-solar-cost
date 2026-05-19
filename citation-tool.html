@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UK Business Citation Tool — Bulk Directory Submitter</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Fraunces:wght@700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --blue: #1a3a5c;
+  --blue-mid: #2563a8;
+  --blue-light: #e8f0fb;
+  --accent: #f59e0b;
+  --green: #16a34a;
+  --green-light: #dcfce7;
+  --red: #dc2626;
+  --red-light: #fee2e2;
+  --text: #1e1e1e;
+  --text-light: #5a5a6e;
+  --border: #e2e8f0;
+  --bg: #f8fafc;
+  --white: #ffffff;
+  --radius: 0.75rem;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  line-height: 1.6;
+  font-size: 15px;
+}
+
+/* ── Header ── */
+.site-header {
+  background: var(--blue);
+  color: var(--white);
+  padding: 2rem 1.5rem;
+  text-align: center;
+}
+.site-header .badge {
+  display: inline-block;
+  background: var(--accent);
+  color: var(--blue);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  padding: 0.25rem 0.8rem;
+  border-radius: 2rem;
+  margin-bottom: 1rem;
+}
+.site-header h1 {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  line-height: 1.2;
+  max-width: 640px;
+  margin: 0 auto 0.5rem;
+}
+.site-header p {
+  color: #a8c0d8;
+  max-width: 520px;
+  margin: 0 auto;
+  font-size: 0.95rem;
+}
+
+/* ── Progress bar ── */
+.progress-wrap {
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  padding: 0.75rem 1.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.progress-bar-outer {
+  flex: 1;
+  background: var(--border);
+  border-radius: 2rem;
+  height: 8px;
+  overflow: hidden;
+}
+.progress-bar-inner {
+  height: 100%;
+  background: linear-gradient(90deg, var(--blue-mid), var(--green));
+  border-radius: 2rem;
+  transition: width 0.4s ease;
+  width: 0%;
+}
+.progress-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--blue);
+  white-space: nowrap;
+}
+
+/* ── Layout ── */
+.wrapper {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .layout { grid-template-columns: 1fr; }
+}
+
+/* ── Cards ── */
+.card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.card-header {
+  background: var(--blue);
+  color: var(--white);
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.card-header .step-num {
+  background: rgba(255,255,255,0.2);
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.card-header h2 {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+}
+.card-body { padding: 1.25rem; }
+
+/* ── Form ── */
+.form-group { margin-bottom: 1rem; }
+.form-group label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-light);
+  margin-bottom: 0.3rem;
+}
+.form-group input,
+.form-group textarea,
+.form-group select {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1.5px solid var(--border);
+  border-radius: 0.5rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.92rem;
+  color: var(--text);
+  background: var(--white);
+  transition: border-color 0.2s;
+  outline: none;
+}
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+  border-color: var(--blue-mid);
+}
+.form-group textarea { resize: vertical; min-height: 80px; }
+.form-group .hint {
+  font-size: 0.75rem;
+  color: var(--text-light);
+  margin-top: 0.2rem;
+}
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+.btn-primary {
+  width: 100%;
+  padding: 0.8rem;
+  background: var(--blue-mid);
+  color: var(--white);
+  border: none;
+  border-radius: 0.5rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+  margin-top: 0.5rem;
+}
+.btn-primary:hover { background: var(--blue); }
+.btn-primary:active { transform: scale(0.98); }
+
+/* ── Citation Kit ── */
+.kit-section { margin-bottom: 1.25rem; }
+.kit-section h3 {
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-light);
+  margin-bottom: 0.5rem;
+}
+.kit-box {
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 0.85rem 1rem;
+  font-size: 0.88rem;
+  font-family: 'Courier New', monospace;
+  line-height: 1.7;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 160px;
+  overflow-y: auto;
+}
+.kit-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.btn-copy {
+  flex: 1;
+  padding: 0.45rem 0.75rem;
+  background: var(--blue-light);
+  color: var(--blue-mid);
+  border: 1.5px solid #c7d9f0;
+  border-radius: 0.4rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-copy:hover { background: var(--blue-mid); color: var(--white); }
+.btn-copy.copied { background: var(--green); color: var(--white); border-color: var(--green); }
+
+/* ── Directories ── */
+.dir-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+.filter-btn {
+  padding: 0.3rem 0.75rem;
+  border: 1.5px solid var(--border);
+  border-radius: 2rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--white);
+  color: var(--text-light);
+  transition: all 0.2s;
+}
+.filter-btn.active, .filter-btn:hover {
+  background: var(--blue-mid);
+  color: var(--white);
+  border-color: var(--blue-mid);
+}
+
+.dir-list { display: flex; flex-direction: column; gap: 0.6rem; }
+
+.dir-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: 0.6rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.dir-item:hover { border-color: var(--blue-mid); box-shadow: 0 2px 8px rgba(37,99,168,0.1); }
+.dir-item.done {
+  border-color: var(--green);
+  background: var(--green-light);
+}
+.dir-item.done .dir-name { text-decoration: line-through; color: var(--text-light); }
+
+.dir-check {
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+  background: var(--white);
+  font-size: 0.7rem;
+  color: transparent;
+}
+.dir-check:hover { border-color: var(--green); }
+.dir-item.done .dir-check {
+  background: var(--green);
+  border-color: var(--green);
+  color: var(--white);
+}
+
+.dir-info { min-width: 0; }
+.dir-name {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dir-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.15rem;
+}
+.tier-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.1rem 0.5rem;
+  border-radius: 2rem;
+  letter-spacing: 0.04em;
+}
+.tier-1 { background: #fef3c7; color: #92400e; }
+.tier-2 { background: #dbeafe; color: #1e40af; }
+.tier-3 { background: #f3e8ff; color: #6b21a8; }
+.tier-trade { background: #fce7f3; color: #9d174d; }
+
+.dir-type {
+  font-size: 0.72rem;
+  color: var(--text-light);
+}
+
+.dir-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 0.75rem;
+  background: var(--blue-light);
+  color: var(--blue-mid);
+  border: 1px solid #c7d9f0;
+  border-radius: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.dir-link:hover { background: var(--blue-mid); color: var(--white); }
+.dir-item.done .dir-link { opacity: 0.5; pointer-events: none; }
+
+/* ── Schema section ── */
+.schema-wrap {
+  background: #1e1e2e;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  position: relative;
+}
+.schema-wrap pre {
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem;
+  color: #a8d8a8;
+  line-height: 1.6;
+  overflow-x: auto;
+  max-height: 300px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+.schema-copy-btn {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  padding: 0.3rem 0.6rem;
+  background: rgba(255,255,255,0.1);
+  color: var(--white);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: 'DM Sans', sans-serif;
+  transition: background 0.2s;
+}
+.schema-copy-btn:hover { background: rgba(255,255,255,0.2); }
+.schema-copy-btn.copied { background: var(--green); border-color: var(--green); }
+
+/* ── Stats ── */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+.stat-box {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  text-align: center;
+}
+.stat-num {
+  font-family: 'Fraunces', serif;
+  font-size: 2rem;
+  color: var(--blue);
+  line-height: 1;
+}
+.stat-label {
+  font-size: 0.75rem;
+  color: var(--text-light);
+  margin-top: 0.25rem;
+}
+
+/* ── Empty state ── */
+.empty-state {
+  text-align: center;
+  padding: 2.5rem 1rem;
+  color: var(--text-light);
+}
+.empty-state .icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+.empty-state h3 { font-size: 1rem; color: var(--text); margin-bottom: 0.3rem; }
+.empty-state p { font-size: 0.88rem; }
+
+/* ── Export ── */
+.export-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+.btn-export {
+  flex: 1;
+  padding: 0.55rem;
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: 0.5rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-light);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-export:hover { border-color: var(--blue-mid); color: var(--blue-mid); }
+
+.footer {
+  text-align: center;
+  padding: 2rem 1.5rem;
+  font-size: 0.8rem;
+  color: #aaa;
+  border-top: 1px solid var(--border);
+  margin-top: 2rem;
+}
+
+/* ── Notification toast ── */
+.toast {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  background: var(--text);
+  color: var(--white);
+  padding: 0.7rem 1.2rem;
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  opacity: 0;
+  transform: translateY(0.5rem);
+  transition: all 0.3s;
+  z-index: 999;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="badge">Free SEO Tool</div>
+  <h1>UK Business Citation Tool</h1>
+  <p>Enter your business details once. Get pre-filled links to every major UK directory. Track your progress as you go.</p>
+</header>
+
+<div class="progress-wrap" id="progressWrap" style="display:none">
+  <div class="progress-bar-outer">
+    <div class="progress-bar-inner" id="progressBar"></div>
+  </div>
+  <span class="progress-label" id="progressLabel">0 / 25 done</span>
+</div>
+
+<div class="wrapper">
+  <div class="layout">
+
+    <!-- LEFT COLUMN -->
+    <div>
+      <!-- Step 1: Business Info -->
+      <div class="card" style="margin-bottom:1.5rem">
+        <div class="card-header">
+          <div class="step-num">1</div>
+          <h2>Your Business Details</h2>
+        </div>
+        <div class="card-body">
+          <div class="form-group">
+            <label>Business Name *</label>
+            <input type="text" id="bizName" placeholder="e.g. Amp Renewables">
+          </div>
+          <div class="form-group">
+            <label>Address Line 1 *</label>
+            <input type="text" id="addr1" placeholder="e.g. 8 Bede House, Tower Road">
+          </div>
+          <div class="form-group">
+            <label>Address Line 2</label>
+            <input type="text" id="addr2" placeholder="e.g. Washington">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>City / Town *</label>
+              <input type="text" id="city" placeholder="e.g. Tyne and Wear">
+            </div>
+            <div class="form-group">
+              <label>County</label>
+              <input type="text" id="county" placeholder="e.g. Tyne and Wear">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Postcode *</label>
+              <input type="text" id="postcode" placeholder="e.g. NE37 2SH">
+            </div>
+            <div class="form-group">
+              <label>Phone *</label>
+              <input type="tel" id="phone" placeholder="e.g. 0191 535 2711">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Website URL *</label>
+            <input type="url" id="website" placeholder="https://www.example.co.uk">
+          </div>
+          <div class="form-group">
+            <label>Email Address</label>
+            <input type="email" id="email" placeholder="info@example.co.uk">
+          </div>
+          <div class="form-group">
+            <label>Business Category *</label>
+            <select id="category">
+              <option value="">— Select a category —</option>
+              <option value="Solar &amp; Renewables">Solar &amp; Renewables</option>
+              <option value="Electrician">Electrician</option>
+              <option value="Plumber">Plumber</option>
+              <option value="Builder / General Contractor">Builder / General Contractor</option>
+              <option value="Roofing Contractor">Roofing Contractor</option>
+              <option value="HVAC / Heat Pumps">HVAC / Heat Pumps</option>
+              <option value="Landscaping">Landscaping</option>
+              <option value="Cleaning Services">Cleaning Services</option>
+              <option value="Accountant">Accountant</option>
+              <option value="Solicitor / Legal">Solicitor / Legal</option>
+              <option value="Restaurant / Café">Restaurant / Café</option>
+              <option value="Retail Shop">Retail Shop</option>
+              <option value="Health &amp; Beauty">Health &amp; Beauty</option>
+              <option value="Gym / Fitness">Gym / Fitness</option>
+              <option value="Estate Agent">Estate Agent</option>
+              <option value="Dentist">Dentist</option>
+              <option value="GP / Medical">GP / Medical</option>
+              <option value="IT Services">IT Services</option>
+              <option value="Marketing Agency">Marketing Agency</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Short Description <span style="font-weight:400;text-transform:none">(160 chars)</span></label>
+            <textarea id="descShort" placeholder="A one-sentence summary of what you do and where you serve." maxlength="160"></textarea>
+            <div class="hint"><span id="shortCount">0</span>/160 characters</div>
+          </div>
+          <div class="form-group">
+            <label>Long Description <span style="font-weight:400;text-transform:none">(500 chars)</span></label>
+            <textarea id="descLong" style="min-height:100px" placeholder="A fuller description of your services, location, and why customers choose you." maxlength="500"></textarea>
+            <div class="hint"><span id="longCount">0</span>/500 characters</div>
+          </div>
+          <div class="form-group">
+            <label>Opening Hours</label>
+            <input type="text" id="hours" placeholder="e.g. Mon–Fri 8am–6pm, Sat 9am–1pm">
+          </div>
+          <button class="btn-primary" onclick="generateKit()">Generate My Citation Kit →</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Citation Kit -->
+      <div class="card" id="kitCard" style="display:none">
+        <div class="card-header">
+          <div class="step-num">2</div>
+          <h2>Your Citation Kit</h2>
+        </div>
+        <div class="card-body">
+
+          <div class="kit-section">
+            <h3>Standard NAP Block</h3>
+            <div class="kit-box" id="napText"></div>
+            <div class="kit-actions">
+              <button class="btn-copy" onclick="copyKit('napText', this)">Copy Plain Text</button>
+            </div>
+          </div>
+
+          <div class="kit-section">
+            <h3>HTML Format</h3>
+            <div class="kit-box" id="napHtml"></div>
+            <div class="kit-actions">
+              <button class="btn-copy" onclick="copyKit('napHtml', this)">Copy HTML</button>
+            </div>
+          </div>
+
+          <div class="kit-section">
+            <h3>JSON-LD Schema (add to your website &lt;head&gt;)</h3>
+            <div class="schema-wrap">
+              <pre id="schemaCode"></pre>
+              <button class="schema-copy-btn" onclick="copySchema(this)">Copy</button>
+            </div>
+          </div>
+
+          <div class="export-row">
+            <button class="btn-export" onclick="exportCSV()">⬇ Export CSV</button>
+            <button class="btn-export" onclick="exportJSON()">⬇ Export JSON</button>
+            <button class="btn-export" onclick="exportText()">⬇ Export TXT</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div>
+
+      <!-- Stats row -->
+      <div class="stats-row" id="statsRow" style="display:none">
+        <div class="stat-box">
+          <div class="stat-num" id="statDone">0</div>
+          <div class="stat-label">Submitted</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num" id="statLeft">25</div>
+          <div class="stat-label">Remaining</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-num" id="statPct">0%</div>
+          <div class="stat-label">Complete</div>
+        </div>
+      </div>
+
+      <!-- Step 3: Directories -->
+      <div class="card">
+        <div class="card-header">
+          <div class="step-num">3</div>
+          <h2>UK Citation Directories</h2>
+        </div>
+        <div class="card-body" id="dirBody">
+          <div class="empty-state">
+            <div class="icon">📋</div>
+            <h3>Fill in your details first</h3>
+            <p>Complete Step 1 and hit "Generate" to unlock your directory checklist with pre-filled submission links.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="footer">
+  Built for UK local businesses. No data is stored on any server — everything lives in your browser.
+  | <a href="https://www.amprenewables.co.uk" style="color:#888">Amp Renewables</a>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Directory data ──────────────────────────────────────────────────────────
+const DIRECTORIES = [
+  // Tier 1 — Essential
+  { id: 'google',       name: 'Google Business Profile', tier: '1', tierLabel: 'Essential', url: 'https://business.google.com/add', type: 'Free listing', note: 'Most important citation — do this first' },
+  { id: 'bing',         name: 'Bing Places for Business', tier: '1', tierLabel: 'Essential', url: 'https://www.bingplaces.com/', type: 'Free listing', note: 'Powers Bing, Yahoo, Cortana & Alexa results' },
+  { id: 'apple',        name: 'Apple Maps Connect',      tier: '1', tierLabel: 'Essential', url: 'https://mapsconnect.apple.com/', type: 'Free listing', note: 'Critical for iPhone / Siri users' },
+  { id: 'facebook',     name: 'Facebook Business Page',  tier: '1', tierLabel: 'Essential', url: 'https://www.facebook.com/pages/create', type: 'Free listing', note: 'Social + local signals' },
+  { id: 'yell',         name: 'Yell.com',                tier: '1', tierLabel: 'Essential', url: 'https://advertise.yell.com/free-listing/', type: 'Free listing', note: "UK's biggest online directory" },
+
+  // Tier 2 — High value
+  { id: 'thomsonlocal', name: 'Thomson Local',          tier: '2', tierLabel: 'High Value', url: 'https://www.thomsonlocal.com/add-business', type: 'Free listing' },
+  { id: 'yelp',         name: 'Yelp UK',                tier: '2', tierLabel: 'High Value', url: 'https://biz.yelp.co.uk/', type: 'Free + reviews' },
+  { id: 'trustpilot',   name: 'Trustpilot',             tier: '2', tierLabel: 'High Value', url: 'https://business.trustpilot.com/signup', type: 'Free + reviews', note: 'High visibility in SERPs' },
+  { id: 'linkedin',     name: 'LinkedIn Company Page',  tier: '2', tierLabel: 'High Value', url: 'https://www.linkedin.com/company/setup/new', type: 'Free listing' },
+  { id: 'foursquare',   name: 'Foursquare for Business',tier: '2', tierLabel: 'High Value', url: 'https://business.foursquare.com/', type: 'Free listing', note: 'Powers 200+ apps and services' },
+
+  // Tier 3 — Good UK directories
+  { id: 'freeindex',    name: 'FreeIndex',              tier: '3', tierLabel: 'Directory', url: 'https://www.freeindex.co.uk/addlisting.htm', type: 'Free listing' },
+  { id: 'scoot',        name: 'Scoot.co.uk',            tier: '3', tierLabel: 'Directory', url: 'https://www.scoot.co.uk/', type: 'Free listing' },
+  { id: 'hotfrog',      name: 'Hotfrog UK',             tier: '3', tierLabel: 'Directory', url: 'https://www.hotfrog.co.uk/AddBusiness.aspx', type: 'Free listing' },
+  { id: 'cylex',        name: 'Cylex UK',               tier: '3', tierLabel: 'Directory', url: 'https://uk.cylex-directory.com/', type: 'Free listing' },
+  { id: 'touchlocal',   name: 'Touch Local',            tier: '3', tierLabel: 'Directory', url: 'https://www.touchlocal.com/', type: 'Free listing' },
+  { id: 'bizmagnet',    name: 'Business Magnet',        tier: '3', tierLabel: 'Directory', url: 'https://www.businessmagnet.co.uk/', type: 'Free listing' },
+  { id: 'bark',         name: 'Bark.com',               tier: '3', tierLabel: 'Directory', url: 'https://www.bark.com/en/gb/become-a-professional/', type: 'Leads platform' },
+  { id: '192',          name: '192.com / BT Phone Book',tier: '3', tierLabel: 'Directory', url: 'https://www.192.com/', type: 'Free listing' },
+  { id: 'tipped',       name: 'Tipped.co.uk',          tier: '3', tierLabel: 'Directory', url: 'https://www.tipped.co.uk/', type: 'Free listing' },
+  { id: 'brownbook',    name: 'Brownbook',              tier: '3', tierLabel: 'Directory', url: 'https://www.brownbook.net/', type: 'Free listing' },
+
+  // Trade directories
+  { id: 'checkatrade',  name: 'Checkatrade',            tier: 'trade', tierLabel: 'Trades', url: 'https://www.checkatrade.com/trades/join/', type: 'Vetted listing', note: 'Best for tradespeople' },
+  { id: 'which',        name: 'Which? Trusted Traders',  tier: 'trade', tierLabel: 'Trades', url: 'https://trustedtraders.which.co.uk/apply/', type: 'Vetted listing' },
+  { id: 'mybuilder',    name: 'MyBuilder',              tier: 'trade', tierLabel: 'Trades', url: 'https://www.mybuilder.com/login/tradesperson', type: 'Leads platform' },
+  { id: 'ratedpeople',  name: 'Rated People',           tier: 'trade', tierLabel: 'Trades', url: 'https://www.ratedpeople.com/trades', type: 'Leads platform' },
+  { id: 'houzz',        name: 'Houzz Pro',              tier: 'trade', tierLabel: 'Trades', url: 'https://www.houzz.co.uk/for-pros', type: 'Free listing', note: 'Great for home improvement' },
+];
+
+// ── State ──────────────────────────────────────────────────────────────────
+let bizData = {};
+const STORAGE_KEY = 'uk_citation_done';
+
+function getDone() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch { return {}; }
+}
+function setDone(id, val) {
+  const d = getDone();
+  if (val) d[id] = true; else delete d[id];
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
+}
+
+// ── Character counters ─────────────────────────────────────────────────────
+document.getElementById('descShort').addEventListener('input', function() {
+  document.getElementById('shortCount').textContent = this.value.length;
+});
+document.getElementById('descLong').addEventListener('input', function() {
+  document.getElementById('longCount').textContent = this.value.length;
+});
+
+// ── Generate ───────────────────────────────────────────────────────────────
+function generateKit() {
+  const name    = document.getElementById('bizName').value.trim();
+  const addr1   = document.getElementById('addr1').value.trim();
+  const addr2   = document.getElementById('addr2').value.trim();
+  const city    = document.getElementById('city').value.trim();
+  const county  = document.getElementById('county').value.trim();
+  const postcode= document.getElementById('postcode').value.trim().toUpperCase();
+  const phone   = document.getElementById('phone').value.trim();
+  const website = document.getElementById('website').value.trim();
+  const email   = document.getElementById('email').value.trim();
+  const category= document.getElementById('category').value;
+  const short   = document.getElementById('descShort').value.trim();
+  const long    = document.getElementById('descLong').value.trim();
+  const hours   = document.getElementById('hours').value.trim();
+
+  if (!name || !addr1 || !city || !postcode || !phone || !website) {
+    showToast('Please fill in all required fields (marked *)');
+    return;
+  }
+
+  bizData = { name, addr1, addr2, city, county, postcode, phone, website, email, category, short, long, hours };
+
+  // Build address string
+  const addrParts = [addr1, addr2, city, county, postcode].filter(Boolean);
+  const addrStr   = addrParts.join(', ');
+
+  // NAP plain text
+  const napPlain = [
+    name,
+    addr1,
+    addr2 ? addr2 : null,
+    city + (county && county !== city ? ', ' + county : ''),
+    postcode,
+    phone,
+    website,
+    email || null,
+    category || null,
+    short || null,
+    hours ? 'Hours: ' + hours : null,
+  ].filter(Boolean).join('\n');
+
+  // NAP HTML
+  const napHtmlStr = `<address>
+  <strong>${esc(name)}</strong><br>
+  ${esc(addr1)}<br>
+  ${addr2 ? esc(addr2) + '<br>' : ''}
+  ${esc(city)}${county && county !== city ? ', ' + esc(county) : ''}<br>
+  ${esc(postcode)}<br>
+  <a href="tel:${esc(phone.replace(/\s/g,''))}">${esc(phone)}</a><br>
+  <a href="${esc(website)}">${esc(website)}</a>${email ? '<br><a href="mailto:' + esc(email) + '">' + esc(email) + '</a>' : ''}
+</address>`;
+
+  // JSON-LD
+  const schema = buildSchema(bizData, addrStr);
+
+  document.getElementById('napText').textContent = napPlain;
+  document.getElementById('napHtml').textContent = napHtmlStr;
+  document.getElementById('schemaCode').textContent = schema;
+
+  document.getElementById('kitCard').style.display = '';
+
+  // Render directories
+  renderDirectories();
+  document.getElementById('statsRow').style.display = '';
+  document.getElementById('progressWrap').style.display = '';
+  updateStats();
+
+  showToast('Citation kit generated!');
+  document.getElementById('dirBody').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function esc(str) {
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+// ── Schema builder ─────────────────────────────────────────────────────────
+function buildSchema(d, addrStr) {
+  const typeMap = {
+    'Solar &amp; Renewables': 'ElectricalContractor',
+    'Electrician': 'Electrician',
+    'Plumber': 'Plumber',
+    'Builder / General Contractor': 'GeneralContractor',
+    'Roofing Contractor': 'RoofingContractor',
+    'HVAC / Heat Pumps': 'HVACBusiness',
+    'Landscaping': 'LandscapingBusiness',
+    'Cleaning Services': 'HousePainter',
+    'Accountant': 'Accountant',
+    'Solicitor / Legal': 'LegalService',
+    'Restaurant / Café': 'Restaurant',
+    'Retail Shop': 'Store',
+    'Health &amp; Beauty': 'BeautySalon',
+    'Gym / Fitness': 'ExerciseGym',
+    'Estate Agent': 'RealEstateAgent',
+    'Dentist': 'Dentist',
+    'GP / Medical': 'MedicalOrganization',
+    'IT Services': 'LocalBusiness',
+    'Marketing Agency': 'LocalBusiness',
+    'Other': 'LocalBusiness',
+  };
+  const schemaType = typeMap[d.category] || 'LocalBusiness';
+  const obj = {
+    "@context": "https://schema.org",
+    "@type": schemaType,
+    "name": d.name,
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": [d.addr1, d.addr2].filter(Boolean).join(', '),
+      "addressLocality": d.city,
+      "addressRegion": d.county || d.city,
+      "postalCode": d.postcode,
+      "addressCountry": "GB"
+    },
+    "telephone": d.phone,
+    "url": d.website,
+  };
+  if (d.email) obj.email = d.email;
+  if (d.short) obj.description = d.short;
+  if (d.hours) obj.openingHours = d.hours;
+
+  return `<script type="application/ld+json">\n${JSON.stringify(obj, null, 2)}\n<\/script>`;
+}
+
+// ── Render directories ─────────────────────────────────────────────────────
+let activeFilter = 'all';
+
+function renderDirectories() {
+  const done = getDone();
+  const container = document.getElementById('dirBody');
+
+  const tierLabels = ['all','1','2','3','trade'];
+  const tierNames  = { all:'All', '1':'Essential', '2':'High Value', '3':'Directories', trade:'Trades' };
+
+  const filtered = activeFilter === 'all'
+    ? DIRECTORIES
+    : DIRECTORIES.filter(d => d.tier === activeFilter);
+
+  container.innerHTML = `
+    <div class="dir-filters">
+      ${tierLabels.map(t => `<button class="filter-btn ${activeFilter===t?'active':''}" onclick="setFilter('${t}')">${tierNames[t]} ${t==='all'?'('+DIRECTORIES.length+')':'('+DIRECTORIES.filter(d=>d.tier===t).length+')'}</button>`).join('')}
+    </div>
+    <div class="dir-list">
+      ${filtered.map(dir => {
+        const isDone = !!done[dir.id];
+        const tierClass = 'tier-' + dir.tier;
+        return `
+        <div class="dir-item ${isDone?'done':''}" id="item-${dir.id}">
+          <div class="dir-check" onclick="toggleDone('${dir.id}')" title="${isDone?'Mark as not done':'Mark as done'}">
+            ${isDone ? '✓' : ''}
+          </div>
+          <div class="dir-info">
+            <div class="dir-name">${dir.name}</div>
+            <div class="dir-meta">
+              <span class="tier-badge ${tierClass}">${dir.tierLabel}</span>
+              <span class="dir-type">${dir.type}</span>
+            </div>
+            ${dir.note ? `<div style="font-size:0.72rem;color:var(--text-light);margin-top:0.1rem">${dir.note}</div>` : ''}
+          </div>
+          <a class="dir-link" href="${dir.url}" target="_blank" rel="noopener">
+            Submit ↗
+          </a>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+}
+
+function setFilter(f) {
+  activeFilter = f;
+  renderDirectories();
+}
+
+function toggleDone(id) {
+  const done = getDone();
+  const newVal = !done[id];
+  setDone(id, newVal);
+
+  const item = document.getElementById('item-' + id);
+  if (item) {
+    item.classList.toggle('done', newVal);
+    const check = item.querySelector('.dir-check');
+    if (check) check.innerHTML = newVal ? '✓' : '';
+    const link = item.querySelector('.dir-link');
+    if (link) {
+      link.style.opacity = newVal ? '0.5' : '';
+      link.style.pointerEvents = newVal ? 'none' : '';
+    }
+  }
+
+  updateStats();
+  showToast(newVal ? '✓ Marked as submitted' : 'Unmarked');
+}
+
+// ── Stats ──────────────────────────────────────────────────────────────────
+function updateStats() {
+  const done  = getDone();
+  const total = DIRECTORIES.length;
+  const count = DIRECTORIES.filter(d => done[d.id]).length;
+  const pct   = Math.round((count / total) * 100);
+
+  document.getElementById('statDone').textContent = count;
+  document.getElementById('statLeft').textContent = total - count;
+  document.getElementById('statPct').textContent  = pct + '%';
+  document.getElementById('progressBar').style.width = pct + '%';
+  document.getElementById('progressLabel').textContent = `${count} / ${total} done`;
+}
+
+// ── Copy helpers ───────────────────────────────────────────────────────────
+function copyKit(elId, btn) {
+  const text = document.getElementById(elId).textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✓ Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.textContent = elId === 'napHtml' ? 'Copy HTML' : 'Copy Plain Text';
+    }, 2000);
+  });
+}
+
+function copySchema(btn) {
+  const text = document.getElementById('schemaCode').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✓ Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.classList.remove('copied'); btn.textContent = 'Copy'; }, 2000);
+  });
+}
+
+// ── Exports ────────────────────────────────────────────────────────────────
+function exportCSV() {
+  if (!bizData.name) { showToast('Generate your kit first'); return; }
+  const done = getDone();
+  const headers = ['Directory','Tier','Type','URL','Submitted'];
+  const rows = DIRECTORIES.map(d => [
+    d.name, d.tierLabel, d.type, d.url, done[d.id] ? 'Yes' : 'No'
+  ]);
+  const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+  download('citations-' + slug(bizData.name) + '.csv', csv, 'text/csv');
+}
+
+function exportJSON() {
+  if (!bizData.name) { showToast('Generate your kit first'); return; }
+  const done = getDone();
+  const data = {
+    business: bizData,
+    directories: DIRECTORIES.map(d => ({ ...d, submitted: !!done[d.id] }))
+  };
+  download('citations-' + slug(bizData.name) + '.json', JSON.stringify(data, null, 2), 'application/json');
+}
+
+function exportText() {
+  if (!bizData.name) { showToast('Generate your kit first'); return; }
+  const done = getDone();
+  const lines = [
+    'UK CITATION SUBMISSION TRACKER',
+    '================================',
+    `Business: ${bizData.name}`,
+    `Date: ${new Date().toLocaleDateString('en-GB')}`,
+    '',
+    ...DIRECTORIES.map(d => `[${done[d.id]?'X':' '}] ${d.name.padEnd(30)} ${d.url}`)
+  ];
+  download('citations-' + slug(bizData.name) + '.txt', lines.join('\n'), 'text/plain');
+}
+
+function download(filename, content, mimeType) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], { type: mimeType }));
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function slug(str) {
+  return str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+// ── Toast ──────────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ── Init: reload saved progress if any ─────────────────────────────────────
+(function init() {
+  const done = getDone();
+  if (Object.keys(done).length > 0) {
+    updateStats();
+  }
+})();
+</script>
+</body>
+</html>
