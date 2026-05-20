@@ -1,0 +1,162 @@
+// TradeRefer database schema.
+// One DB per licensee (white-label deployment model). Each deployment serves
+// a single solar company plus the tradesman partners who refer work to them.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PARTNER
+  ADMIN
+}
+
+enum ReferralStatus {
+  SUBMITTED
+  CONTACTED
+  APPOINTMENT_BOOKED
+  APPOINTMENT_COMPLETED
+  JOB_SOLD
+  JOB_INSTALLED
+  REJECTED
+}
+
+enum PayoutType {
+  APPOINTMENT
+  JOB
+}
+
+enum PayoutStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+enum Channel {
+  SMS
+  EMAIL
+}
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  hashedPassword String
+  role           Role     @default(PARTNER)
+
+  // Partner profile (null for admin users)
+  fullName     String?
+  phone        String?
+  businessName String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  referrals Referral[]
+  sessions  Session[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Referral {
+  id        String @id @default(cuid())
+  partnerId String
+  partner   User   @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+
+  // Customer details
+  customerName  String
+  customerPhone String
+  customerEmail String
+
+  addressLine1 String
+  addressLine2 String?
+  city         String
+  postcode     String
+
+  // Services interested in (e.g. ["Solar PV", "Battery Storage"])
+  services String[]
+  notes    String?
+
+  status ReferralStatus @default(SUBMITTED)
+
+  appointmentBookedAt   DateTime?
+  appointmentDate       DateTime?
+  appointmentCompletedAt DateTime?
+  jobSoldAt             DateTime?
+  jobInstalledAt        DateTime?
+  jobValue              Decimal?  @db.Decimal(10, 2)
+  rejectedReason        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  payouts          Payout[]
+  statusHistory    ReferralStatusEvent[]
+
+  @@index([partnerId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+// Audit trail for status changes — useful for partner trust and admin debug.
+model ReferralStatusEvent {
+  id         String         @id @default(cuid())
+  referralId String
+  referral   Referral       @relation(fields: [referralId], references: [id], onDelete: Cascade)
+  fromStatus ReferralStatus?
+  toStatus   ReferralStatus
+  changedBy  String?        // user id of the admin who changed it
+  note       String?
+  createdAt  DateTime       @default(now())
+
+  @@index([referralId])
+}
+
+model Payout {
+  id         String       @id @default(cuid())
+  referralId String
+  referral   Referral     @relation(fields: [referralId], references: [id], onDelete: Cascade)
+  type       PayoutType
+  amount     Decimal      @db.Decimal(10, 2)
+  status     PayoutStatus @default(PENDING)
+  paidAt     DateTime?
+  paidBy     String?      // admin user id who marked it paid
+  paymentRef String?      // e.g. bank reference
+  notes      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([referralId])
+  @@index([status])
+}
+
+// Pre-written templates partners can copy to send to their customers.
+// Editable by admins; immutable for partners.
+model MessageTemplate {
+  id        String  @id @default(cuid())
+  channel   Channel
+  title     String
+  subject   String? // email only
+  body      String  @db.Text
+  sortOrder Int     @default(0)
+  active    Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([channel, active, sortOrder])
+}
