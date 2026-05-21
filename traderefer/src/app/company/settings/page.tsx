@@ -1,13 +1,23 @@
 import { requireCompanyAdmin } from "@/lib/auth";
 import { getCurrentCompany } from "@/lib/company";
 import { platform, formatPrice } from "@/lib/platform";
+import { prisma } from "@/lib/db";
+import { ChangePasswordCard } from "@/components/ChangePasswordCard";
 import { SettingsForm } from "./SettingsForm";
 import { LogoUpload } from "./LogoUpload";
+import { TeamMembers } from "./TeamMembers";
+import { MAX_TEAM_SIZE } from "./team-config";
 
 export default async function CompanySettingsPage() {
-  await requireCompanyAdmin();
+  const admin = await requireCompanyAdmin();
   const company = await getCurrentCompany();
   if (!company) return null;
+
+  const teamMembers = await prisma.user.findMany({
+    where: { companyId: admin.companyId, role: "COMPANY_ADMIN" },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, fullName: true, email: true },
+  });
 
   return (
     <div className="space-y-8 max-w-3xl">
@@ -52,6 +62,18 @@ export default async function CompanySettingsPage() {
           services: company.services,
         }}
       />
+
+      <TeamMembers
+        maxTeamSize={MAX_TEAM_SIZE}
+        members={teamMembers.map((m) => ({
+          id: m.id,
+          fullName: m.fullName,
+          email: m.email,
+          isYou: m.id === admin.id,
+        }))}
+      />
+
+      <ChangePasswordCard />
 
       <section className="bg-white border border-slate-200 rounded-xl p-6">
         <h2 className="font-semibold text-brand">Subscription</h2>

@@ -336,6 +336,69 @@ export async function sendPasswordResetEmail(
   }
 }
 
+export async function sendTeamInviteEmail(
+  invitee: { email: string; fullName: string },
+  context: { name: string; inviter: string },
+  inviteUrl: string,
+): Promise<void> {
+  if (!resend) {
+    console.warn(
+      `[email] no RESEND_API_KEY — team invite link for ${invitee.email}: ${inviteUrl}`,
+    );
+    return;
+  }
+
+  const subject = `${context.inviter} invited you to ${context.name} on ${platform.name}`;
+  const html = `
+    <div style="font-family:system-ui,sans-serif;color:#222;max-width:600px;">
+      <h2 style="color:${platform.colors.primary};margin-bottom:4px;">
+        You've been invited to ${esc(context.name)}
+      </h2>
+      <p style="color:#666;margin-top:0;">
+        ${esc(context.inviter)} has invited you to join the <strong>${esc(context.name)}</strong> team on ${esc(platform.name)}.
+      </p>
+      <p>
+        Click the button below to set your password and get started. You'll
+        have full admin access to ${esc(context.name)}'s referrals, partners
+        and payouts.
+      </p>
+      <p>
+        <a href="${inviteUrl}" style="background:${platform.colors.primary};color:#fff;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:500;display:inline-block;">Accept invite &amp; set password</a>
+      </p>
+      <p style="color:#666;font-size:13px;">
+        Or copy this link: <span style="word-break:break-all;">${esc(inviteUrl)}</span>
+      </p>
+      <p style="color:#999;font-size:12px;margin-top:32px;">
+        This invite expires in 7 days. If you weren't expecting it, you can
+        safely ignore this email.
+      </p>
+    </div>
+  `;
+
+  const text = [
+    `You've been invited to ${context.name} on ${platform.name}`,
+    ``,
+    `${context.inviter} has invited you to join the ${context.name} team.`,
+    ``,
+    `Set your password to get started:`,
+    inviteUrl,
+    ``,
+    `This invite expires in 7 days.`,
+  ].join("\n");
+
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: invitee.email,
+      subject,
+      html,
+      text,
+    });
+  } catch (err) {
+    console.error("[email] team invite failed:", err);
+  }
+}
+
 function esc(s: string): string {
   return s
     .replace(/&/g, "&amp;")
