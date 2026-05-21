@@ -6,7 +6,10 @@ import { prisma } from "@/lib/db";
 import { createSession, hashPassword } from "@/lib/auth";
 import { findAvailableSlug } from "@/lib/company";
 import { platform } from "@/lib/platform";
-import { sendNewCompanySignupNotification } from "@/lib/email";
+import {
+  sendCompanyWelcomeEmail,
+  sendNewCompanySignupNotification,
+} from "@/lib/email";
 
 const SignupSchema = z.object({
   companyName: z.string().trim().min(2, "Please enter your company name"),
@@ -118,7 +121,12 @@ export async function companySignupAction(
     return { user, company };
   });
 
-  await sendNewCompanySignupNotification(company, data.ownerName);
+  // Both emails are fire-and-forget — a failing send must never block signup.
+  // Run them in parallel so we don't add 2× round-trip latency to the flow.
+  await Promise.all([
+    sendNewCompanySignupNotification(company, data.ownerName),
+    sendCompanyWelcomeEmail(company, data.ownerName),
+  ]);
 
   await createSession(user.id, user.role, user.companyId);
   // Land new signups on /company/settings — they need to upload a logo,

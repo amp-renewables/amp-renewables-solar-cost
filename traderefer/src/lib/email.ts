@@ -213,6 +213,134 @@ export async function sendNewPartnerSignupNotification(
   }
 }
 
+// Goes to the new Company admin when they sign up — confirms the account
+// is set up and gives them the key URLs (landing page, partner signup link,
+// login). Sent in addition to (not instead of) the operator notification.
+//
+// Does not require NOTIFY_EMAIL to be configured — sends directly to the
+// company contactEmail. The platform RESEND_API_KEY is the only hard
+// requirement; without it we log a warning and move on.
+export async function sendCompanyWelcomeEmail(
+  company: Pick<Company, "name" | "slug" | "contactEmail" | "trialEndsAt">,
+  ownerName: string,
+): Promise<void> {
+  if (!resend) {
+    console.warn(
+      `[email] no RESEND_API_KEY — welcome email for ${company.contactEmail} skipped`,
+    );
+    return;
+  }
+
+  const landingLink = `${APP_URL}/${company.slug}`;
+  const signupLink = `${APP_URL}/${company.slug}/signup`;
+  const loginLink = `${APP_URL}/login`;
+  const settingsLink = `${APP_URL}/company/settings`;
+
+  const trialEndsFormatted = company.trialEndsAt
+    ? company.trialEndsAt.toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : null;
+
+  const subject = `Welcome to ${platform.name}, ${company.name}`;
+  const firstName = ownerName.split(" ")[0] || ownerName;
+
+  const html = `
+    <div style="font-family:system-ui,sans-serif;color:#222;max-width:600px;">
+      <h2 style="color:${platform.colors.primary};margin-bottom:4px;">Welcome to ${esc(platform.name)}, ${esc(firstName)}</h2>
+      <p style="color:#666;margin-top:0;">
+        Your ${esc(platform.name)} account is set up and your branded landing
+        page is live. Here's everything you need to get started.
+      </p>
+
+      <h3 style="margin-top:28px;color:${platform.colors.primary};font-size:15px;">Your links</h3>
+      <table style="border-collapse:collapse;font-size:14px;width:100%;">
+        <tr>
+          <td style="padding:6px 12px 6px 0;color:#888;vertical-align:top;width:160px;">Landing page</td>
+          <td style="padding:6px 0;"><a href="${landingLink}" style="color:${platform.colors.primary};word-break:break-all;">${esc(landingLink)}</a><br/><span style="color:#999;font-size:12px;">Public marketing page — share this with potential customers</span></td>
+        </tr>
+        <tr>
+          <td style="padding:6px 12px 6px 0;color:#888;vertical-align:top;">Partner signup link</td>
+          <td style="padding:6px 0;"><a href="${signupLink}" style="color:${platform.colors.primary};word-break:break-all;font-weight:500;">${esc(signupLink)}</a><br/><span style="color:#999;font-size:12px;">Send this to the tradesmen you want referrals from</span></td>
+        </tr>
+        <tr>
+          <td style="padding:6px 12px 6px 0;color:#888;vertical-align:top;">Log in</td>
+          <td style="padding:6px 0;"><a href="${loginLink}" style="color:${platform.colors.primary};">${esc(loginLink)}</a></td>
+        </tr>
+      </table>
+
+      ${
+        trialEndsFormatted
+          ? `<h3 style="margin-top:28px;color:${platform.colors.primary};font-size:15px;">Your free trial</h3>
+      <p style="font-size:14px;color:#444;margin:6px 0;">
+        You're on a ${platform.pricing.trialDays}-day free trial until
+        <strong>${esc(trialEndsFormatted)}</strong>. After that it's
+        ${platform.pricing.currencySymbol}${platform.pricing.monthly}/month.
+        Cancel anytime — no contracts.
+      </p>`
+          : ""
+      }
+
+      <h3 style="margin-top:28px;color:${platform.colors.primary};font-size:15px;">First steps</h3>
+      <ol style="font-size:14px;color:#444;padding-left:20px;">
+        <li style="margin-bottom:8px;"><strong>Upload your logo and pick your brand colours</strong> — they'll show on your landing page and partner dashboards.</li>
+        <li style="margin-bottom:8px;"><strong>Tune your payouts</strong> — set what you pay per appointment and per job sold.</li>
+        <li style="margin-bottom:8px;"><strong>Share your signup link</strong> with the tradesmen you want to refer customers from.</li>
+      </ol>
+
+      <p style="margin-top:24px;">
+        <a href="${settingsLink}" style="background:${platform.colors.primary};color:#fff;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:500;display:inline-block;">Open your settings</a>
+      </p>
+
+      <p style="margin-top:32px;color:#999;font-size:12px;">
+        Need a hand? Reply to this email or write to
+        <a href="mailto:${esc(platform.supportEmail)}" style="color:${platform.colors.primary};">${esc(platform.supportEmail)}</a>.
+      </p>
+    </div>
+  `;
+
+  const text = [
+    `Welcome to ${platform.name}, ${firstName}`,
+    ``,
+    `Your ${platform.name} account is set up and your branded landing page is live.`,
+    ``,
+    `YOUR LINKS`,
+    `Landing page:        ${landingLink}`,
+    `Partner signup link: ${signupLink}`,
+    `Log in:              ${loginLink}`,
+    ``,
+    trialEndsFormatted
+      ? `Free trial ends: ${trialEndsFormatted} (${platform.pricing.trialDays}-day trial, then ${platform.pricing.currencySymbol}${platform.pricing.monthly}/month)`
+      : null,
+    ``,
+    `FIRST STEPS`,
+    `1. Upload your logo and pick your brand colours`,
+    `2. Tune your payouts (per appointment, per job sold)`,
+    `3. Share your signup link with tradesmen`,
+    ``,
+    `Open your settings: ${settingsLink}`,
+    ``,
+    `Need a hand? Reply to this email or write to ${platform.supportEmail}.`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: company.contactEmail,
+      replyTo: platform.supportEmail,
+      subject,
+      html,
+      text,
+    });
+  } catch (err) {
+    console.error("[email] welcome email failed:", err);
+  }
+}
+
 // Goes to the TradeRefer platform owner (Joe) when a new Company signs up.
 export async function sendNewCompanySignupNotification(
   company: Pick<Company, "id" | "name" | "slug" | "contactEmail" | "contactPhone">,
