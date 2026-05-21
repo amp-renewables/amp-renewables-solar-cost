@@ -62,7 +62,7 @@ export async function saveCompanySettings(
     .map((s) => s.trim())
     .filter(Boolean);
 
-  await prisma.company.update({
+  const updated = await prisma.company.update({
     where: { id: admin.companyId },
     data: {
       name: d.name,
@@ -77,9 +77,15 @@ export async function saveCompanySettings(
       payoutJob: d.payoutJob,
       services,
     },
+    select: { slug: true },
   });
 
   revalidatePath("/company/settings");
   revalidatePath("/company");
+  // Public landing + partner-signup pages display the payout amounts,
+  // services list, brand name, etc. — they all need to refresh when an
+  // admin saves new settings, otherwise visitors see stale numbers.
+  revalidatePath(`/${updated.slug}`);
+  revalidatePath(`/${updated.slug}/signup`);
   return { ok: true };
 }
