@@ -13,7 +13,6 @@ type Props = {
     heroSubheading: string | null;
     primaryColor: string;
     accentColor: string;
-    logoUrl: string | null;
     payoutAppointment: number;
     payoutJob: number;
     services: string[];
@@ -63,12 +62,6 @@ export function SettingsForm({ company }: Props) {
             className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
           />
         </label>
-        <Field
-          label="Logo URL"
-          name="logoUrl"
-          defaultValue={company.logoUrl ?? ""}
-          hint="Paste a public URL to your logo image. Upload via Vercel Blob coming soon — for now host elsewhere (e.g. Imgur, your website)."
-        />
         <div className="grid sm:grid-cols-2 gap-4">
           <ColorField
             label="Primary colour"
