@@ -3,18 +3,5 @@
   "framework": "nextjs",
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
-  "installCommand": "npm install",
-  "redirects": [
-    {
-      "source": "/:path*",
-      "has": [
-        {
-          "type": "host",
-          "value": "www.traderefer.co.uk"
-        }
-      ],
-      "destination": "https://traderefer.co.uk/:path*",
-      "permanent": true
-    }
-  ]
+  "installCommand": "npm install"
 }
