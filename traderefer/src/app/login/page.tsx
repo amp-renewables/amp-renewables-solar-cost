@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { platform } from "@/lib/platform";
 import { getSessionUser, landingPathForRole } from "@/lib/auth";
+import { Logo } from "@/components/Logo";
 import { LoginForm } from "./LoginForm";
 
 export default async function LoginPage() {
@@ -11,9 +11,7 @@ export default async function LoginPage() {
   return (
     <div className="min-h-screen flex flex-col">
       <header className="px-6 py-4 max-w-6xl mx-auto w-full">
-        <Link href="/" className="font-bold text-xl text-brand">
-          {platform.name}
-        </Link>
+        <Logo variant="dark" size="md" />
       </header>
       <main className="flex-1 flex items-center justify-center px-6 py-10">
         <div className="w-full max-w-sm">
