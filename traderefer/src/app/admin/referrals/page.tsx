@@ -1,0 +1,150 @@
+import Link from "next/link";
+import { prisma } from "@/lib/db";
+import { StatusBadge } from "@/components/StatusBadge";
+import { ALL_STATUSES, STATUS_LABELS } from "@/lib/status";
+import type { ReferralStatus } from "@prisma/client";
+
+export default async function AdminReferralsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string; q?: string }>;
+}) {
+  const sp = await searchParams;
+  const statusFilter = ALL_STATUSES.includes(sp.status as ReferralStatus)
+    ? (sp.status as ReferralStatus)
+    : null;
+  const q = (sp.q ?? "").trim();
+
+  const referrals = await prisma.referral.findMany({
+    where: {
+      ...(statusFilter ? { status: statusFilter } : {}),
+      ...(q
+        ? {
+            OR: [
+              { customerName: { contains: q, mode: "insensitive" } },
+              { customerEmail: { contains: q, mode: "insensitive" } },
+              { customerPhone: { contains: q } },
+              { postcode: { contains: q, mode: "insensitive" } },
+              {
+                partner: {
+                  businessName: { contains: q, mode: "insensitive" },
+                },
+              },
+            ],
+          }
+        : {}),
+    },
+    orderBy: { createdAt: "desc" },
+    include: { partner: true, payouts: true },
+    take: 200,
+  });
+
+  return (
+    <div className="space-y-6">
+      <h1
+        className="text-2xl font-bold text-brand"
+        style={{ fontFamily: "Fraunces, serif" }}
+      >
+        All referrals
+      </h1>
+
+      <form className="bg-white border border-slate-200 rounded-xl p-4 flex flex-wrap gap-3 items-end">
+        <label className="flex-1 min-w-[200px]">
+          <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+            Search
+          </span>
+          <input
+            type="search"
+            name="q"
+            defaultValue={q}
+            placeholder="Name, email, phone, postcode, business…"
+            className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          />
+        </label>
+        <label>
+          <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+            Status
+          </span>
+          <select
+            name="status"
+            defaultValue={statusFilter ?? ""}
+            className="mt-1 block rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          >
+            <option value="">All</option>
+            {ALL_STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {STATUS_LABELS[s]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="submit"
+          className="btn-primary px-4 py-2 rounded-lg text-sm font-medium"
+        >
+          Filter
+        </button>
+        <Link
+          href="/admin/referrals"
+          className="text-sm text-slate-600 underline"
+        >
+          Clear
+        </Link>
+      </form>
+
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-500">
+            <tr>
+              <th className="px-4 py-2">Customer</th>
+              <th className="px-4 py-2 hidden sm:table-cell">Partner</th>
+              <th className="px-4 py-2 hidden md:table-cell">Services</th>
+              <th className="px-4 py-2">Status</th>
+              <th className="px-4 py-2 hidden md:table-cell">Submitted</th>
+              <th className="px-4 py-2"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {referrals.map((r) => (
+              <tr key={r.id} className="align-top">
+                <td className="px-4 py-3">
+                  <div className="font-medium">{r.customerName}</div>
+                  <div className="text-xs text-slate-500">
+                    {r.customerPhone}
+                  </div>
+                </td>
+                <td className="px-4 py-3 hidden sm:table-cell text-slate-600">
+                  {r.partner.businessName}
+                </td>
+                <td className="px-4 py-3 hidden md:table-cell text-slate-600 text-xs">
+                  {r.services.join(", ")}
+                </td>
+                <td className="px-4 py-3">
+                  <StatusBadge status={r.status} />
+                </td>
+                <td className="px-4 py-3 hidden md:table-cell text-slate-500">
+                  {r.createdAt.toLocaleDateString("en-GB")}
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <Link
+                    href={`/admin/referrals/${r.id}`}
+                    className="text-brand underline"
+                  >
+                    Open →
+                  </Link>
+                </td>
+              </tr>
+            ))}
+            {referrals.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                  No referrals match those filters.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

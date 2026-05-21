@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-primary: var(--brand-primary, #1a3c2a);
+  --color-brand-accent: var(--brand-accent, #52b788);
+  --font-display: "Fraunces", ui-serif, Georgia, serif;
+}
+
+:root {
+  --brand-primary: #1a3c2a;
+  --brand-accent: #52b788;
+}
+
+html, body {
+  background: #fafaf7;
+  color: #1f2937;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+}
+
+.btn-primary {
+  background: var(--brand-primary);
+  color: white;
+}
+.btn-primary:hover { opacity: 0.92; }
+
+.btn-accent {
+  background: var(--brand-accent);
+  color: var(--brand-primary);
+}
+
+.text-brand { color: var(--brand-primary); }
+.bg-brand { background: var(--brand-primary); }
+.bg-brand-accent { background: var(--brand-accent); }
+.border-brand { border-color: var(--brand-primary); }
+.ring-brand { --tw-ring-color: var(--brand-primary); }
