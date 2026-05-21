@@ -121,5 +121,8 @@ export async function companySignupAction(
   await sendNewCompanySignupNotification(company, data.ownerName);
 
   await createSession(user.id, user.role, user.companyId);
-  redirect("/company?welcome=1");
+  // Land new signups on /company/settings — they need to upload a logo,
+  // tune payouts, and grab their signup link. Dropping them on /company
+  // (an empty referrals dashboard) is disorienting on day one.
+  redirect("/company/settings?welcome=1");
 }

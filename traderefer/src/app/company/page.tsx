@@ -5,16 +5,10 @@ import { getCurrentCompany, formatCompanyMoney } from "@/lib/company";
 import { platform, formatPrice } from "@/lib/platform";
 import { StatusBadge } from "@/components/StatusBadge";
 
-export default async function CompanyOverviewPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ welcome?: string }>;
-}) {
+export default async function CompanyOverviewPage() {
   const user = await requireCompanyAdmin();
   const company = await getCurrentCompany();
   if (!company) return null;
-  const sp = await searchParams;
-  const welcome = sp.welcome === "1";
 
   const [
     totalReferrals,
@@ -76,26 +70,6 @@ export default async function CompanyOverviewPage({
 
   return (
     <div className="space-y-8">
-      {welcome && (
-        <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl px-5 py-4">
-          <h2 className="font-semibold mb-1">
-            Welcome to {platform.name}, {company.name}!
-          </h2>
-          <p className="text-sm">
-            Your branded landing page is live at{" "}
-            <Link
-              href={`/${company.slug}`}
-              className="underline font-medium"
-              target="_blank"
-            >
-              {platform.domain}/{company.slug}
-            </Link>
-            . Share that link with the tradesmen you want to refer customers
-            from. Head to <Link href="/company/settings" className="underline">Settings</Link> to upload your logo and tune your payouts.
-          </p>
-        </div>
-      )}
-
       {trialDaysLeft !== null && (
         <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-5 py-3 text-sm">
           You&apos;re on a free trial — {trialDaysLeft} day
@@ -114,8 +88,9 @@ export default async function CompanyOverviewPage({
         <p className="text-slate-600 text-sm mt-1">
           Your partner signup page:{" "}
           <a
-            href={`/${company.slug}`}
+            href={`/${company.slug}/signup`}
             target="_blank"
+            rel="noopener"
             className="text-brand underline"
           >
             {partnerSignupUrl}

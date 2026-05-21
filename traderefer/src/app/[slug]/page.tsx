@@ -1,12 +1,11 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import {
   getCompanyBySlug,
   formatCompanyMoney,
   payoutsForCompany,
 } from "@/lib/company";
 import { platform } from "@/lib/platform";
-import { getSessionUser, landingPathForRole } from "@/lib/auth";
 
 export default async function CompanyLandingPage({
   params,
@@ -17,8 +16,11 @@ export default async function CompanyLandingPage({
   const company = await getCompanyBySlug(slug);
   if (!company) notFound();
 
-  const user = await getSessionUser();
-  if (user) redirect(landingPathForRole(user.role));
+  // NB: this page is intentionally accessible to logged-in users too.
+  // Company admins need to be able to view their own landing page to QA
+  // it (logo, copy, colours) without having to log out. The header CTAs
+  // still send users to /login or /<slug>/signup, both of which handle
+  // already-authenticated visitors gracefully.
 
   const payouts = payoutsForCompany(company);
 
