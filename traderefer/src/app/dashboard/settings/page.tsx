@@ -1,5 +1,6 @@
 import { requirePartner } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { ChangePasswordCard } from "@/components/ChangePasswordCard";
 import { ProfileForm, BankForm } from "./Forms";
 
 export default async function PartnerSettingsPage() {
@@ -51,6 +52,10 @@ export default async function PartnerSettingsPage() {
           bankSortCode={user.bankSortCode ?? ""}
           bankAccountNumber={user.bankAccountNumber ?? ""}
         />
+      </section>
+
+      <section>
+        <ChangePasswordCard />
       </section>
     </div>
   );
