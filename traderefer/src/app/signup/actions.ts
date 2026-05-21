@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { createSession, hashPassword } from "@/lib/auth";
+import { sendNewPartnerSignupNotification } from "@/lib/email";
 
 const SignupSchema = z.object({
   fullName: z.string().trim().min(2, "Please enter your full name"),
@@ -59,6 +60,14 @@ export async function signupAction(
       phone: data.phone,
       role: "PARTNER",
     },
+  });
+
+  await sendNewPartnerSignupNotification({
+    id: user.id,
+    email: user.email,
+    fullName: user.fullName,
+    businessName: user.businessName,
+    phone: user.phone,
   });
 
   await createSession(user.id, user.role);

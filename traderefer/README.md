@@ -181,14 +181,41 @@ src/
 
 ---
 
+## Email notifications
+
+When a new partner signs up or a new referral is submitted, an email is sent
+to `NOTIFY_EMAIL` (the address you configure in env vars — for AMP that's
+`joe@amprenewables.co.uk`). Uses [Resend](https://resend.com).
+
+### One-time setup
+
+1. Sign up at https://resend.com (free tier covers 3,000 emails/month)
+2. **API keys** (left nav) → **Create API Key** → copy it
+3. **Domains** (left nav) → **Add Domain** → enter `traderefer.co.uk`
+4. Resend shows you 3–4 DNS records (`SPF`, `DKIM`, `DMARC`). Add them to
+   your domain's DNS (at Cloudflare, Vercel, or wherever DNS lives). Wait
+   ~5 mins, then click **Verify** in Resend.
+5. Set env vars in Vercel:
+   - `RESEND_API_KEY` — the key from step 2
+   - `NOTIFY_EMAIL` — where notifications go (e.g. `joe@amprenewables.co.uk`)
+   - `FROM_EMAIL` — sender, e.g. `notifications@traderefer.co.uk` (only after
+     step 4 is verified — until then use `onboarding@resend.dev`)
+   - `APP_URL` — your production URL, used in email links back to the admin
+     view (e.g. `https://www.traderefer.co.uk`)
+6. Redeploy.
+
+If `RESEND_API_KEY` is unset, the email helpers silently no-op — handy for
+local dev without needing real credentials.
+
 ## What's intentionally not built yet
 
 These are well-scoped follow-ons rather than gaps in v1:
 
-- **Outbound notifications.** When status changes (e.g. APPOINTMENT_BOOKED),
-  email/SMS the partner. Hook into the same status-update action in
-  `src/app/admin/referrals/[id]/actions.ts`. Recommend Resend for email,
-  Twilio for SMS.
+- **Outbound notifications to partners.** When status changes (e.g.
+  APPOINTMENT_BOOKED), email the partner. Hook into the same status-update
+  action in `src/app/admin/referrals/[id]/actions.ts` using the same
+  `sendX` pattern in `src/lib/email.ts`. SMS via Twilio is a similarly
+  small add.
 - **Password reset / email verification.** v1 assumes admins create accounts
   responsibly. Add a token table + `/forgot-password` route when needed.
 - **Multi-tenant mode.** See "Licensing model" above.
