@@ -1,8 +1,11 @@
 import { prisma } from "@/lib/db";
+import { requireCompanyAdmin } from "@/lib/auth";
 import { upsertTemplateAction, deleteTemplateAction } from "./actions";
 
-export default async function AdminTemplatesPage() {
+export default async function CompanyTemplatesPage() {
+  const admin = await requireCompanyAdmin();
   const templates = await prisma.messageTemplate.findMany({
+    where: { companyId: admin.companyId },
     orderBy: [{ channel: "asc" }, { sortOrder: "asc" }],
   });
 

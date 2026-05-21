@@ -1,9 +1,7 @@
 // Pure functions for payout calculation, derived from referral state.
-// Keeping this in one place makes it trivial to tweak the rules per-licensee
-// or A/B test new payout structures.
+// Payout amounts come from the Company row (each tenant sets their own).
 
-import type { Payout, Referral } from "@prisma/client";
-import { brand } from "./brand";
+import type { Company, Payout, Referral } from "@prisma/client";
 
 export type PayoutSummary = {
   pendingTotal: number;
@@ -37,11 +35,12 @@ export function summarisePayouts(payouts: Payout[]): PayoutSummary {
   };
 }
 
-// Given a referral's new status, decide which payouts should now exist.
-// Idempotent: returns the FULL desired set so callers can diff against
-// existing rows and avoid double-paying.
+// Given a referral's new status and the owning company's payout rules,
+// return the FULL set of payouts that should exist. Callers diff against
+// the existing rows so reruns don't double-pay.
 export function expectedPayoutsForStatus(
   status: Referral["status"],
+  company: Pick<Company, "payoutAppointment" | "payoutJob">,
 ): { type: "APPOINTMENT" | "JOB"; amount: number }[] {
   const out: { type: "APPOINTMENT" | "JOB"; amount: number }[] = [];
   if (
@@ -50,10 +49,13 @@ export function expectedPayoutsForStatus(
     status === "JOB_SOLD" ||
     status === "JOB_INSTALLED"
   ) {
-    out.push({ type: "APPOINTMENT", amount: brand.payouts.perAppointment });
+    out.push({
+      type: "APPOINTMENT",
+      amount: Number(company.payoutAppointment),
+    });
   }
   if (status === "JOB_SOLD" || status === "JOB_INSTALLED") {
-    out.push({ type: "JOB", amount: brand.payouts.perJob });
+    out.push({ type: "JOB", amount: Number(company.payoutJob) });
   }
   return out;
 }

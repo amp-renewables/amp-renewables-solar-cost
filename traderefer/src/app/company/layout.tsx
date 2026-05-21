@@ -1,13 +1,13 @@
-import { requirePartner } from "@/lib/auth";
+import { requireCompanyAdmin } from "@/lib/auth";
 import { getCurrentCompany } from "@/lib/company";
 import { Nav } from "@/components/Nav";
 
-export default async function PartnerLayout({
+export default async function CompanyAdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const user = await requirePartner();
+  const user = await requireCompanyAdmin();
   const company = await getCurrentCompany();
   return (
     <div className="min-h-screen flex flex-col">

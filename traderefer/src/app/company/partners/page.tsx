@@ -1,12 +1,20 @@
 import { prisma } from "@/lib/db";
-import { formatMoney } from "@/lib/brand";
+import { requireCompanyAdmin } from "@/lib/auth";
+import { getCurrentCompany, formatCompanyMoney } from "@/lib/company";
 import { summarisePayouts } from "@/lib/payouts";
 
-export default async function AdminPartnersPage() {
+export default async function CompanyPartnersPage() {
+  const user = await requireCompanyAdmin();
+  const company = await getCurrentCompany();
+  if (!company) return null;
+
   const partners = await prisma.user.findMany({
-    where: { role: "PARTNER" },
+    where: { role: "PARTNER", companyId: user.companyId },
     include: {
-      referrals: { include: { payouts: true } },
+      referrals: {
+        where: { companyId: user.companyId },
+        include: { payouts: true },
+      },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -55,10 +63,10 @@ export default async function AdminPartnersPage() {
                   </td>
                   <td className="px-4 py-3">{p.referrals.length}</td>
                   <td className="px-4 py-3 text-amber-700">
-                    {formatMoney(s.pendingTotal)}
+                    {formatCompanyMoney(company, s.pendingTotal)}
                   </td>
                   <td className="px-4 py-3 text-emerald-700">
-                    {formatMoney(s.paidTotal)}
+                    {formatCompanyMoney(company, s.paidTotal)}
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell text-slate-500">
                     {p.createdAt.toLocaleDateString("en-GB")}

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth";
+import { requireCompanyAdmin } from "@/lib/auth";
 import { expectedPayoutsForStatus } from "@/lib/payouts";
 import type { ReferralStatus } from "@prisma/client";
 
@@ -27,7 +27,7 @@ const StatusSchema = z.object({
 // Single source of truth for status changes. Updates the referral row,
 // records an audit event, and creates the right payouts idempotently.
 export async function updateReferralStatusAction(formData: FormData) {
-  const admin = await requireAdmin();
+  const admin = await requireCompanyAdmin();
   const parsed = StatusSchema.parse({
     referralId: formData.get("referralId"),
     toStatus: formData.get("toStatus"),
@@ -39,9 +39,12 @@ export async function updateReferralStatusAction(formData: FormData) {
 
   const existing = await prisma.referral.findUnique({
     where: { id: parsed.referralId },
-    include: { payouts: true },
+    include: { payouts: true, company: true },
   });
   if (!existing) throw new Error("Referral not found");
+  if (existing.companyId !== admin.companyId) {
+    throw new Error("Not authorised to modify this referral");
+  }
 
   const now = new Date();
   const updates: Record<string, unknown> = { status: parsed.toStatus };
@@ -91,8 +94,10 @@ export async function updateReferralStatusAction(formData: FormData) {
       },
     });
 
-    // Reconcile payouts.
-    const expected = expectedPayoutsForStatus(parsed.toStatus);
+    const expected = expectedPayoutsForStatus(
+      parsed.toStatus,
+      existing.company,
+    );
     const existingByType = new Map(existing.payouts.map((p) => [p.type, p]));
 
     for (const e of expected) {
@@ -107,8 +112,6 @@ export async function updateReferralStatusAction(formData: FormData) {
           },
         });
       } else if (current.status === "CANCELLED") {
-        // Was previously cancelled (e.g. status moved backwards then forward
-        // again); reopen it.
         await tx.payout.update({
           where: { id: current.id },
           data: { status: "PENDING", amount: e.amount },
@@ -116,8 +119,6 @@ export async function updateReferralStatusAction(formData: FormData) {
       }
     }
 
-    // If the new status no longer warrants a payout that previously existed,
-    // cancel any unpaid ones (don't touch already-paid ones).
     const expectedTypes = new Set(expected.map((e) => e.type));
     for (const p of existing.payouts) {
       if (!expectedTypes.has(p.type) && p.status === "PENDING") {
@@ -129,8 +130,8 @@ export async function updateReferralStatusAction(formData: FormData) {
     }
   });
 
-  revalidatePath(`/admin/referrals/${existing.id}`);
-  revalidatePath("/admin/referrals");
-  revalidatePath("/admin/payouts");
-  revalidatePath("/admin");
+  revalidatePath(`/company/referrals/${existing.id}`);
+  revalidatePath("/company/referrals");
+  revalidatePath("/company/payouts");
+  revalidatePath("/company");
 }

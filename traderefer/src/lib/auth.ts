@@ -31,7 +31,12 @@ export async function verifyPassword(
   return bcrypt.compare(plain, hashed);
 }
 
-type TokenPayload = { sub: string; sid: string; role: Role };
+type TokenPayload = {
+  sub: string;
+  sid: string;
+  role: Role;
+  cid: string | null;
+};
 
 async function signToken(payload: TokenPayload, expiresAt: Date) {
   return new SignJWT({ ...payload })
@@ -53,6 +58,7 @@ async function verifyToken(token: string): Promise<TokenPayload | null> {
         sub: payload.sub,
         sid: payload.sid,
         role: payload.role as Role,
+        cid: typeof payload.cid === "string" ? payload.cid : null,
       };
     }
     return null;
@@ -61,13 +67,17 @@ async function verifyToken(token: string): Promise<TokenPayload | null> {
   }
 }
 
-export async function createSession(userId: string, role: Role) {
+export async function createSession(
+  userId: string,
+  role: Role,
+  companyId: string | null,
+) {
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
   const session = await prisma.session.create({
     data: { userId, expiresAt },
   });
   const token = await signToken(
-    { sub: userId, sid: session.id, role },
+    { sub: userId, sid: session.id, role, cid: companyId },
     expiresAt,
   );
   const cookieStore = await cookies();
@@ -98,11 +108,11 @@ export type SessionUser = {
   id: string;
   email: string;
   role: Role;
+  companyId: string | null;
   fullName: string | null;
   businessName: string | null;
 };
 
-// Cached per-request — call freely from server components.
 export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIE_NAME)?.value;
@@ -122,6 +132,7 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
     id: u.id,
     email: u.email,
     role: u.role,
+    companyId: u.companyId,
     fullName: u.fullName,
     businessName: u.businessName,
   };
@@ -133,14 +144,36 @@ export async function requireUser(): Promise<SessionUser> {
   return user;
 }
 
-export async function requireAdmin(): Promise<SessionUser> {
+export async function requireSuperadmin(): Promise<SessionUser> {
   const user = await requireUser();
-  if (user.role !== "ADMIN") redirect("/dashboard");
+  if (user.role !== "SUPERADMIN") redirect("/dashboard");
   return user;
 }
 
-export async function requirePartner(): Promise<SessionUser> {
+// Returns a user we know is a COMPANY_ADMIN attached to a company.
+export async function requireCompanyAdmin(): Promise<
+  SessionUser & { companyId: string }
+> {
   const user = await requireUser();
-  if (user.role !== "PARTNER") redirect("/admin");
-  return user;
+  if (user.role !== "COMPANY_ADMIN" || !user.companyId) {
+    redirect("/dashboard");
+  }
+  return user as SessionUser & { companyId: string };
+}
+
+export async function requirePartner(): Promise<
+  SessionUser & { companyId: string }
+> {
+  const user = await requireUser();
+  if (user.role !== "PARTNER" || !user.companyId) {
+    redirect("/login");
+  }
+  return user as SessionUser & { companyId: string };
+}
+
+// Pick the right post-login landing page for a user's role.
+export function landingPathForRole(role: Role): string {
+  if (role === "SUPERADMIN") return "/platform";
+  if (role === "COMPANY_ADMIN") return "/company";
+  return "/dashboard";
 }

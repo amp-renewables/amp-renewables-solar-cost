@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { createSession, verifyPassword } from "@/lib/auth";
+import { createSession, landingPathForRole, verifyPassword } from "@/lib/auth";
 
 const LoginSchema = z.object({
   email: z.string().trim().email("Enter a valid email"),
@@ -47,6 +47,6 @@ export async function loginAction(
     return { formError: "Email or password is incorrect." };
   }
 
-  await createSession(user.id, user.role);
-  redirect(user.role === "ADMIN" ? "/admin" : "/dashboard");
+  await createSession(user.id, user.role, user.companyId);
+  redirect(landingPathForRole(user.role));
 }
