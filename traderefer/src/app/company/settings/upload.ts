@@ -1,9 +1,24 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { put } from "@vercel/blob";
+import { put, del } from "@vercel/blob";
 import { prisma } from "@/lib/db";
 import { requireCompanyAdmin } from "@/lib/auth";
+
+// Best-effort delete of a previous logo blob. Only attempts deletion for URLs
+// that look like our own blob store (so we don't try to call del() on a
+// hand-pasted external URL or a logo from a different store). Errors are
+// logged but never thrown — orphaning a blob is better than failing the
+// upload from the user's perspective.
+async function tryDeletePreviousBlob(url: string | null | undefined) {
+  if (!url) return;
+  if (!url.includes(".public.blob.vercel-storage.com/")) return;
+  try {
+    await del(url);
+  } catch (err) {
+    console.error("[blob] failed to delete previous logo:", err);
+  }
+}
 
 const ALLOWED_TYPES = new Set([
   "image/png",
@@ -49,6 +64,17 @@ export async function uploadCompanyLogoAction(
     };
   }
 
+  // Look up the existing logoUrl + slug so we can (a) revalidate the right
+  // public landing page and (b) delete the previous blob after a successful
+  // replacement.
+  const existing = await prisma.company.findUnique({
+    where: { id: admin.companyId },
+    select: { slug: true, logoUrl: true },
+  });
+  if (!existing) {
+    return { error: "Company not found." };
+  }
+
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "png";
   const key = `companies/${admin.companyId}/logo-${Date.now()}.${ext}`;
 
@@ -69,9 +95,14 @@ export async function uploadCompanyLogoAction(
     data: { logoUrl: url },
   });
 
+  // Fire-and-forget: clean up the old blob now that the new one is wired in.
+  // Awaited so we don't return before the cleanup completes on a cold start,
+  // but a failure here doesn't undo the successful upload.
+  await tryDeletePreviousBlob(existing.logoUrl);
+
   revalidatePath("/company/settings");
   revalidatePath("/company");
-  revalidatePath(`/${admin.companyId}`);
+  revalidatePath(`/${existing.slug}`);
   return { ok: "Logo uploaded." };
 }
 
@@ -80,10 +111,22 @@ export async function uploadCompanyLogoAction(
 // shows the result.
 export async function clearCompanyLogoAction(): Promise<void> {
   const admin = await requireCompanyAdmin();
+
+  const existing = await prisma.company.findUnique({
+    where: { id: admin.companyId },
+    select: { slug: true, logoUrl: true },
+  });
+
   await prisma.company.update({
     where: { id: admin.companyId },
     data: { logoUrl: null },
   });
+
+  await tryDeletePreviousBlob(existing?.logoUrl);
+
   revalidatePath("/company/settings");
   revalidatePath("/company");
+  if (existing?.slug) {
+    revalidatePath(`/${existing.slug}`);
+  }
 }

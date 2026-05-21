@@ -17,7 +17,7 @@ const UpsertSchema = z.object({
 
 export async function upsertTemplateAction(formData: FormData) {
   const admin = await requireCompanyAdmin();
-  const parsed = UpsertSchema.parse({
+  const result = UpsertSchema.safeParse({
     id: formData.get("id") || undefined,
     channel: formData.get("channel"),
     title: formData.get("title"),
@@ -26,6 +26,16 @@ export async function upsertTemplateAction(formData: FormData) {
     sortOrder: formData.get("sortOrder") || 0,
     active: formData.get("active") === "on",
   });
+  if (!result.success) {
+    console.error(
+      "[upsertTemplateAction] invalid form submission:",
+      result.error.flatten(),
+    );
+    throw new Error(
+      "Could not save template — check the title and body fields.",
+    );
+  }
+  const parsed = result.data;
 
   if (parsed.id) {
     // Only allow updating templates in this admin's company.

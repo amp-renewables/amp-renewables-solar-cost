@@ -28,7 +28,7 @@ const StatusSchema = z.object({
 // records an audit event, and creates the right payouts idempotently.
 export async function updateReferralStatusAction(formData: FormData) {
   const admin = await requireCompanyAdmin();
-  const parsed = StatusSchema.parse({
+  const result = StatusSchema.safeParse({
     referralId: formData.get("referralId"),
     toStatus: formData.get("toStatus"),
     appointmentDate: formData.get("appointmentDate") || undefined,
@@ -36,6 +36,14 @@ export async function updateReferralStatusAction(formData: FormData) {
     rejectedReason: formData.get("rejectedReason") || undefined,
     note: formData.get("note") || undefined,
   });
+  if (!result.success) {
+    console.error(
+      "[updateReferralStatusAction] invalid form submission:",
+      result.error.flatten(),
+    );
+    throw new Error("Could not update referral — invalid form submission.");
+  }
+  const parsed = result.data;
 
   const existing = await prisma.referral.findUnique({
     where: { id: parsed.referralId },

@@ -77,9 +77,14 @@ export function Nav({
           <span className="hidden md:inline">
             {user.businessName || user.fullName || user.email}
           </span>
-          <a href="/logout" className="underline hover:text-white">
-            Log out
-          </a>
+          <form action="/logout" method="POST">
+            <button
+              type="submit"
+              className="underline hover:text-white cursor-pointer"
+            >
+              Log out
+            </button>
+          </form>
         </div>
       </div>
       <nav className="bg-black/10">
@@ -93,12 +98,14 @@ export function Nav({
               {l.label}
             </Link>
           ))}
-          <a
-            href="/logout"
-            className="sm:hidden px-3 py-2 text-sm whitespace-nowrap hover:bg-white/10 rounded-t-lg ml-auto"
-          >
-            Log out
-          </a>
+          <form action="/logout" method="POST" className="sm:hidden ml-auto">
+            <button
+              type="submit"
+              className="px-3 py-2 text-sm whitespace-nowrap hover:bg-white/10 rounded-t-lg cursor-pointer"
+            >
+              Log out
+            </button>
+          </form>
         </div>
       </nav>
     </header>

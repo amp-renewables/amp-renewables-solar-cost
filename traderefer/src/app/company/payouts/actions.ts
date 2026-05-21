@@ -12,10 +12,18 @@ const MarkPaidSchema = z.object({
 
 export async function markPayoutPaidAction(formData: FormData) {
   const admin = await requireCompanyAdmin();
-  const parsed = MarkPaidSchema.parse({
+  const result = MarkPaidSchema.safeParse({
     payoutId: formData.get("payoutId"),
     paymentRef: formData.get("paymentRef") || undefined,
   });
+  if (!result.success) {
+    console.error(
+      "[markPayoutPaidAction] invalid form submission:",
+      result.error.flatten(),
+    );
+    throw new Error("Could not mark payout — invalid form submission.");
+  }
+  const parsed = result.data;
 
   // Guard: only allow marking payouts that belong to this admin's company.
   const payout = await prisma.payout.findUnique({
