@@ -2,6 +2,7 @@ import { requireCompanyAdmin } from "@/lib/auth";
 import { getCurrentCompany } from "@/lib/company";
 import { platform, formatPrice } from "@/lib/platform";
 import { SettingsForm } from "./SettingsForm";
+import { LogoUpload } from "./LogoUpload";
 
 export default async function CompanySettingsPage() {
   await requireCompanyAdmin();
@@ -31,6 +32,11 @@ export default async function CompanySettingsPage() {
         </p>
       </div>
 
+      <LogoUpload
+        currentLogoUrl={company.logoUrl}
+        companyName={company.name}
+      />
+
       <SettingsForm
         company={{
           name: company.name,
@@ -41,7 +47,6 @@ export default async function CompanySettingsPage() {
           heroSubheading: company.heroSubheading,
           primaryColor: company.primaryColor,
           accentColor: company.accentColor,
-          logoUrl: company.logoUrl,
           payoutAppointment: Number(company.payoutAppointment),
           payoutJob: Number(company.payoutJob),
           services: company.services,
