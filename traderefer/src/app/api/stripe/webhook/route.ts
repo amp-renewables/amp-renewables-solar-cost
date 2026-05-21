@@ -262,13 +262,23 @@ function mapStripeStatus(stripeStatus: Stripe.Subscription.Status): CompanyStatu
 }
 
 function subscriptionPeriodEnd(subscription: Stripe.Subscription): Date | null {
-  // Stripe's subscription type has `current_period_end` as a unix timestamp (seconds).
-  // It's been moved around in different API versions; we read it defensively.
-  const raw = (subscription as Stripe.Subscription & {
-    current_period_end?: number;
-  }).current_period_end;
-  if (typeof raw === "number") {
-    return new Date(raw * 1000);
+  // Stripe's subscription type has `current_period_end` as a unix timestamp.
+  // As of API version 2026-04-22.dahlia it moved from the top-level Subscription
+  // to each Subscription Item — top-level is now omitted. Read item[0] first
+  // (we only ever have one item per sub), then fall back to the legacy field
+  // for older API versions.
+  type WithPeriodEnd = { current_period_end?: number };
+  const item = subscription.items?.data?.[0] as
+    | (Stripe.SubscriptionItem & WithPeriodEnd)
+    | undefined;
+  const itemEnd = item?.current_period_end;
+  if (typeof itemEnd === "number") {
+    return new Date(itemEnd * 1000);
+  }
+  const subEnd = (subscription as Stripe.Subscription & WithPeriodEnd)
+    .current_period_end;
+  if (typeof subEnd === "number") {
+    return new Date(subEnd * 1000);
   }
   return null;
 }
