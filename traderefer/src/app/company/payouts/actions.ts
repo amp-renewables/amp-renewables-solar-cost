@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireCompanyAdmin } from "@/lib/auth";
+import { assertCompanyCanWriteById } from "@/lib/stripe";
 
 const MarkPaidSchema = z.object({
   payoutId: z.string().min(1),
@@ -12,6 +13,7 @@ const MarkPaidSchema = z.object({
 
 export async function markPayoutPaidAction(formData: FormData) {
   const admin = await requireCompanyAdmin();
+  await assertCompanyCanWriteById(admin.companyId);
   const result = MarkPaidSchema.safeParse({
     payoutId: formData.get("payoutId"),
     paymentRef: formData.get("paymentRef") || undefined,

@@ -135,7 +135,10 @@ export default async function CompanySettingsPage({
         <h2 className="font-semibold text-brand">Subscription</h2>
         <div className="mt-3 text-sm text-slate-700 space-y-1">
           <p>
-            Status: <strong className="capitalize">{company.status.toLowerCase().replace(/_/g, " ")}</strong>
+            Status:{" "}
+            <strong className="capitalize">
+              {company.status.toLowerCase().replace(/_/g, " ")}
+            </strong>
           </p>
           {company.trialEndsAt && company.status === "TRIAL" && (
             <p>
@@ -149,8 +152,10 @@ export default async function CompanySettingsPage({
           )}
         </div>
         <p className="text-xs text-slate-500 mt-4">
-          After trial: {formatPrice(platform.pricing.monthly)}/month. Billing
-          through Stripe (coming soon).
+          After trial: {formatPrice(platform.pricing.monthly)}/month.{" "}
+          <Link href="/company/billing" className="text-brand underline">
+            Manage billing →
+          </Link>
         </p>
       </section>
     </div>

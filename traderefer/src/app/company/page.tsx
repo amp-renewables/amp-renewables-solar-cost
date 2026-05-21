@@ -70,13 +70,63 @@ export default async function CompanyOverviewPage() {
 
   return (
     <div className="space-y-8">
-      {trialDaysLeft !== null && (
-        <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-5 py-3 text-sm">
-          You&apos;re on a free trial — {trialDaysLeft} day
-          {trialDaysLeft === 1 ? "" : "s"} left. After that it&apos;s{" "}
-          {formatPrice(platform.pricing.monthly)}/month.
+      {trialDaysLeft !== null && !company.isComped && (
+        <div
+          className={`border rounded-xl px-5 py-3 text-sm flex items-center justify-between gap-3 flex-wrap ${
+            trialDaysLeft <= 3
+              ? "bg-rose-50 border-rose-200 text-rose-900"
+              : "bg-amber-50 border-amber-200 text-amber-900"
+          }`}
+        >
+          <span>
+            {trialDaysLeft === 0 ? (
+              <>
+                <strong>Your free trial ends today.</strong> Upgrade to keep
+                full access — {formatPrice(platform.pricing.monthly)}/month.
+              </>
+            ) : (
+              <>
+                You&apos;re on a free trial — <strong>{trialDaysLeft}</strong>{" "}
+                day{trialDaysLeft === 1 ? "" : "s"} left. After that it&apos;s{" "}
+                {formatPrice(platform.pricing.monthly)}/month.
+              </>
+            )}
+          </span>
+          <Link
+            href="/company/billing"
+            className="bg-brand text-white font-semibold px-4 py-2 rounded-lg whitespace-nowrap hover:opacity-90"
+          >
+            Upgrade now →
+          </Link>
         </div>
       )}
+      {company.status !== "TRIAL" &&
+        company.status !== "ACTIVE" &&
+        !company.isComped && (
+          <div className="bg-rose-50 border border-rose-200 text-rose-900 rounded-xl px-5 py-3 text-sm flex items-center justify-between gap-3 flex-wrap">
+            <span>
+              {company.status === "PAST_DUE" ? (
+                <>
+                  <strong>Your last payment failed.</strong> Update your card
+                  to restore access.
+                </>
+              ) : (
+                <>
+                  <strong>Your subscription has ended.</strong> Resubscribe to
+                  start using {platform.name} again.
+                </>
+              )}
+            </span>
+            <Link
+              href="/company/billing"
+              className="bg-brand text-white font-semibold px-4 py-2 rounded-lg whitespace-nowrap hover:opacity-90"
+            >
+              {company.status === "PAST_DUE"
+                ? "Update card →"
+                : "Resubscribe →"}
+            </Link>
+          </div>
+        )}
 
       <div>
         <h1

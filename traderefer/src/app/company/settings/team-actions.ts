@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { hashPassword, requireCompanyAdmin } from "@/lib/auth";
+import { assertCompanyCanWriteById } from "@/lib/stripe";
 import { sendTeamInviteEmail } from "@/lib/email";
 import { platform } from "@/lib/platform";
 import { MAX_TEAM_SIZE } from "./team-config";
@@ -31,6 +32,7 @@ export async function inviteTeamMemberAction(
   formData: FormData,
 ): Promise<InviteState> {
   const admin = await requireCompanyAdmin();
+  await assertCompanyCanWriteById(admin.companyId);
   const parsed = InviteSchema.safeParse({
     fullName: formData.get("fullName"),
     email: formData.get("email"),
@@ -118,6 +120,7 @@ export async function inviteTeamMemberAction(
 
 export async function removeTeamMemberAction(formData: FormData) {
   const admin = await requireCompanyAdmin();
+  await assertCompanyCanWriteById(admin.companyId);
   const targetId = String(formData.get("userId") || "");
   if (!targetId || targetId === admin.id) return;
 

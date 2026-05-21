@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireCompanyAdmin } from "@/lib/auth";
+import { assertCompanyCanWriteById } from "@/lib/stripe";
 import { expectedPayoutsForStatus } from "@/lib/payouts";
 import type { ReferralStatus } from "@prisma/client";
 
@@ -28,6 +29,7 @@ const StatusSchema = z.object({
 // records an audit event, and creates the right payouts idempotently.
 export async function updateReferralStatusAction(formData: FormData) {
   const admin = await requireCompanyAdmin();
+  await assertCompanyCanWriteById(admin.companyId);
   const result = StatusSchema.safeParse({
     referralId: formData.get("referralId"),
     toStatus: formData.get("toStatus"),

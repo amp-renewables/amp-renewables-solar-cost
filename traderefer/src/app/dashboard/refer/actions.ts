@@ -6,6 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requirePartner } from "@/lib/auth";
 import { getCompanyById } from "@/lib/company";
+import { assertCompanyCanWrite } from "@/lib/stripe";
 import { sendNewReferralNotification } from "@/lib/email";
 
 const ReferralSchema = z.object({
@@ -32,6 +33,7 @@ export async function submitReferralAction(
   const user = await requirePartner();
   const company = await getCompanyById(user.companyId);
   if (!company) return { formError: "Company not found." };
+  assertCompanyCanWrite(company);
 
   const services = formData.getAll("services").map(String).filter(Boolean);
   const validServiceSet = new Set(company.services);

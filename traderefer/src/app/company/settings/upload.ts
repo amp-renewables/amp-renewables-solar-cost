@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { put, del } from "@vercel/blob";
 import { prisma } from "@/lib/db";
 import { requireCompanyAdmin } from "@/lib/auth";
+import { assertCompanyCanWriteById } from "@/lib/stripe";
 
 // Best-effort delete of a previous logo blob. Only attempts deletion for URLs
 // that look like our own blob store (so we don't try to call del() on a
@@ -41,6 +42,7 @@ export async function uploadCompanyLogoAction(
   formData: FormData,
 ): Promise<UploadState> {
   const admin = await requireCompanyAdmin();
+  await assertCompanyCanWriteById(admin.companyId);
 
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     return {
@@ -111,6 +113,7 @@ export async function uploadCompanyLogoAction(
 // shows the result.
 export async function clearCompanyLogoAction(): Promise<void> {
   const admin = await requireCompanyAdmin();
+  await assertCompanyCanWriteById(admin.companyId);
 
   const existing = await prisma.company.findUnique({
     where: { id: admin.companyId },

@@ -19,6 +19,7 @@ const companyLinks = [
   { href: "/company/payouts", label: "Payouts" },
   { href: "/company/templates", label: "Templates" },
   { href: "/company/settings", label: "Settings" },
+  { href: "/company/billing", label: "Billing" },
 ];
 
 const platformLinks = [

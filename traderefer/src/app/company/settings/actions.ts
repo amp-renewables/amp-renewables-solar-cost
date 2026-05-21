@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireCompanyAdmin } from "@/lib/auth";
+import { assertCompanyCanWriteById } from "@/lib/stripe";
 
 const SettingsSchema = z.object({
   name: z.string().trim().min(2),
@@ -30,6 +31,7 @@ export async function saveCompanySettings(
   formData: FormData,
 ): Promise<SettingsState> {
   const admin = await requireCompanyAdmin();
+  await assertCompanyCanWriteById(admin.companyId);
   const parsed = SettingsSchema.safeParse({
     name: formData.get("name"),
     contactEmail: formData.get("contactEmail"),

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requirePartner } from "@/lib/auth";
+import { assertCompanyCanWriteById } from "@/lib/stripe";
 
 const ProfileSchema = z.object({
   fullName: z.string().trim().min(2, "Please enter your name"),
@@ -34,6 +35,7 @@ export async function saveProfileAction(
   formData: FormData,
 ): Promise<SettingsState> {
   const user = await requirePartner();
+  await assertCompanyCanWriteById(user.companyId);
   const parsed = ProfileSchema.safeParse({
     fullName: formData.get("fullName"),
     businessName: formData.get("businessName"),
@@ -66,6 +68,7 @@ export async function saveBankAction(
   formData: FormData,
 ): Promise<SettingsState> {
   const user = await requirePartner();
+  await assertCompanyCanWriteById(user.companyId);
   const parsed = BankSchema.safeParse({
     bankAccountName: formData.get("bankAccountName"),
     bankSortCode: formData.get("bankSortCode"),

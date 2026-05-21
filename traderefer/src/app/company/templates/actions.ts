@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireCompanyAdmin } from "@/lib/auth";
+import { assertCompanyCanWriteById } from "@/lib/stripe";
 
 const UpsertSchema = z.object({
   id: z.string().optional(),
@@ -17,6 +18,7 @@ const UpsertSchema = z.object({
 
 export async function upsertTemplateAction(formData: FormData) {
   const admin = await requireCompanyAdmin();
+  await assertCompanyCanWriteById(admin.companyId);
   const result = UpsertSchema.safeParse({
     id: formData.get("id") || undefined,
     channel: formData.get("channel"),
@@ -77,6 +79,7 @@ export async function upsertTemplateAction(formData: FormData) {
 
 export async function deleteTemplateAction(formData: FormData) {
   const admin = await requireCompanyAdmin();
+  await assertCompanyCanWriteById(admin.companyId);
   const id = String(formData.get("id") || "");
   if (!id) return;
   const existing = await prisma.messageTemplate.findUnique({
