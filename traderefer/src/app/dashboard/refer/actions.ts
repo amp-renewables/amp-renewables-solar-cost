@@ -6,6 +6,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requirePartner } from "@/lib/auth";
 import { brand } from "@/lib/brand";
+import { sendNewReferralNotification } from "@/lib/email";
 
 const ReferralSchema = z.object({
   customerName: z.string().trim().min(2, "Customer name required"),
@@ -58,7 +59,7 @@ export async function submitReferralAction(
   }
 
   const d = parsed.data;
-  await prisma.referral.create({
+  const referral = await prisma.referral.create({
     data: {
       partnerId: user.id,
       customerName: d.customerName,
@@ -76,6 +77,29 @@ export async function submitReferralAction(
       },
     },
   });
+
+  // Fetch the partner's phone (not on SessionUser) for the notification email.
+  const partner = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { id: true, email: true, fullName: true, businessName: true, phone: true },
+  });
+  if (partner) {
+    await sendNewReferralNotification(
+      {
+        id: referral.id,
+        customerName: referral.customerName,
+        customerPhone: referral.customerPhone,
+        customerEmail: referral.customerEmail,
+        addressLine1: referral.addressLine1,
+        addressLine2: referral.addressLine2,
+        city: referral.city,
+        postcode: referral.postcode,
+        services: referral.services,
+        notes: referral.notes,
+      },
+      partner,
+    );
+  }
 
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/referrals");
