@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { platform, formatPrice } from "@/lib/platform";
 import { getSessionUser, landingPathForRole } from "@/lib/auth";
+import { Logo } from "@/components/Logo";
 import { CompanySignupForm } from "./CompanySignupForm";
 
 export default async function CompanySignupPage() {
@@ -11,9 +12,7 @@ export default async function CompanySignupPage() {
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
       <div className="bg-brand text-white px-8 py-12 flex flex-col justify-between">
-        <Link href="/" className="font-bold text-xl">
-          {platform.name}
-        </Link>
+        <Logo variant="light" size="md" />
         <div className="my-12">
           <h1
             className="text-3xl sm:text-4xl font-bold mb-4 leading-tight"

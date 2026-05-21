@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { platform, formatPrice } from "@/lib/platform";
 import { getSessionUser, landingPathForRole } from "@/lib/auth";
+import { Logo } from "@/components/Logo";
 
 export default async function HomePage() {
   const user = await getSessionUser();
@@ -10,7 +11,7 @@ export default async function HomePage() {
   return (
     <div className="min-h-screen">
       <header className="px-6 py-4 flex items-center justify-between max-w-6xl mx-auto">
-        <Logo />
+        <Logo variant="dark" size="md" />
         <nav className="flex items-center gap-3 text-sm">
           <Link
             href="/login"
@@ -172,8 +173,10 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <footer className="text-center text-sm text-slate-500 py-8 px-6 space-y-2">
-        <Logo small />
+      <footer className="text-center text-sm text-slate-500 py-8 px-6 space-y-3">
+        <div className="flex justify-center opacity-60">
+          <Logo variant="dark" size="sm" />
+        </div>
         <p>
           The referral platform for tradesmen. Questions? Email{" "}
           <a
@@ -219,26 +222,3 @@ function Feature({ title, body }: { title: string; body: string }) {
   );
 }
 
-// Wordmark logo. Uses /logo.png if the file is present in /public, otherwise
-// falls back to a styled text wordmark so the page never looks broken.
-function Logo({ small = false }: { small?: boolean }) {
-  return (
-    <Link href="/" className="inline-flex items-center gap-2 group">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/logo.png"
-        alt={platform.name}
-        className={small ? "h-6 w-auto opacity-70" : "h-8 w-auto"}
-        onError={(e) => {
-          (e.target as HTMLImageElement).style.display = "none";
-        }}
-      />
-      <span
-        className={`font-bold ${small ? "text-sm text-slate-400" : "text-xl text-brand"}`}
-        style={{ fontFamily: "Fraunces, serif" }}
-      >
-        {platform.name}
-      </span>
-    </Link>
-  );
-}
