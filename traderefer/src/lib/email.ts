@@ -273,6 +273,69 @@ export async function sendNewCompanySignupNotification(
   }
 }
 
+// Goes to the user requesting a password reset. The from address can be the
+// platform default (notifications@traderefer.co.uk) — no company branding,
+// because resets are platform-level.
+export async function sendPasswordResetEmail(
+  user: { email: string; fullName: string | null },
+  resetUrl: string,
+): Promise<void> {
+  if (!resend) {
+    // No Resend configured — log the link to the server console so dev can
+    // still complete the flow. This MUST never happen in production.
+    console.warn(
+      `[email] no RESEND_API_KEY — password reset link for ${user.email}: ${resetUrl}`,
+    );
+    return;
+  }
+
+  const subject = `Reset your ${platform.name} password`;
+  const html = `
+    <div style="font-family:system-ui,sans-serif;color:#222;max-width:600px;">
+      <h2 style="color:${platform.colors.primary};margin-bottom:4px;">Reset your password</h2>
+      <p style="color:#666;margin-top:0;">
+        Hi${user.fullName ? ` ${esc(user.fullName.split(" ")[0])}` : ""}, someone
+        (hopefully you) requested a password reset for your ${esc(platform.name)} account.
+      </p>
+      <p>
+        <a href="${resetUrl}" style="background:${platform.colors.primary};color:#fff;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:500;display:inline-block;">Reset my password</a>
+      </p>
+      <p style="color:#666;font-size:13px;">
+        Or copy this link: <span style="word-break:break-all;">${esc(resetUrl)}</span>
+      </p>
+      <p style="color:#999;font-size:12px;margin-top:32px;">
+        This link expires in 1 hour and can only be used once. If you didn't
+        ask for a reset, you can safely ignore this email — your password
+        won't change.
+      </p>
+    </div>
+  `;
+
+  const text = [
+    `Reset your ${platform.name} password`,
+    ``,
+    `Hi${user.fullName ? ` ${user.fullName.split(" ")[0]}` : ""},`,
+    ``,
+    `Someone (hopefully you) requested a password reset. Open this link to set a new one:`,
+    ``,
+    resetUrl,
+    ``,
+    `Expires in 1 hour. Can only be used once. If this wasn't you, ignore this email.`,
+  ].join("\n");
+
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: user.email,
+      subject,
+      html,
+      text,
+    });
+  } catch (err) {
+    console.error("[email] password-reset email failed:", err);
+  }
+}
+
 function esc(s: string): string {
   return s
     .replace(/&/g, "&amp;")
