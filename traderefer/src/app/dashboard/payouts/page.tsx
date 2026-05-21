@@ -1,18 +1,25 @@
 import { prisma } from "@/lib/db";
 import { requirePartner } from "@/lib/auth";
-import { formatMoney, brand } from "@/lib/brand";
+import {
+  getCurrentCompany,
+  formatCompanyMoney,
+  payoutsForCompany,
+} from "@/lib/company";
 import { summarisePayouts } from "@/lib/payouts";
 
 export default async function PartnerPayoutsPage() {
   const user = await requirePartner();
+  const company = await getCurrentCompany();
+  if (!company) return null;
 
   const payouts = await prisma.payout.findMany({
-    where: { referral: { partnerId: user.id } },
+    where: { referral: { partnerId: user.id, companyId: user.companyId } },
     include: { referral: true },
     orderBy: { createdAt: "desc" },
   });
 
   const summary = summarisePayouts(payouts);
+  const payoutRules = payoutsForCompany(company);
 
   return (
     <div className="space-y-6">
@@ -24,14 +31,15 @@ export default async function PartnerPayoutsPage() {
       </h1>
 
       <div className="grid sm:grid-cols-3 gap-4">
-        <Stat label="Pending" value={formatMoney(summary.pendingTotal)} />
-        <Stat label="Paid" value={formatMoney(summary.paidTotal)} />
-        <Stat label="Total earned" value={formatMoney(summary.earnedTotal)} />
+        <Stat label="Pending" value={formatCompanyMoney(company, summary.pendingTotal)} />
+        <Stat label="Paid" value={formatCompanyMoney(company, summary.paidTotal)} />
+        <Stat label="Total earned" value={formatCompanyMoney(company, summary.earnedTotal)} />
       </div>
 
       <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
-        Payouts are paid by bank transfer monthly. {formatMoney(brand.payouts.perAppointment)} per
-        appointment booked, {formatMoney(brand.payouts.perJob)} per job sold.
+        Payouts are paid by bank transfer monthly.{" "}
+        {formatCompanyMoney(company, payoutRules.appointment)} per appointment
+        booked, {formatCompanyMoney(company, payoutRules.job)} per job sold.
       </div>
 
       {payouts.length === 0 ? (
@@ -63,7 +71,7 @@ export default async function PartnerPayoutsPage() {
                       : "Job sold"}
                   </td>
                   <td className="px-4 py-3 font-medium">
-                    {formatMoney(Number(p.amount))}
+                    {formatCompanyMoney(company, Number(p.amount))}
                   </td>
                   <td className="px-4 py-3">
                     <PayoutBadge status={p.status} />

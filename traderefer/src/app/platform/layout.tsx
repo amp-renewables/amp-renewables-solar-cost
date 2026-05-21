@@ -1,12 +1,12 @@
-import { requireAdmin } from "@/lib/auth";
+import { requireSuperadmin } from "@/lib/auth";
 import { Nav } from "@/components/Nav";
 
-export default async function AdminLayout({
+export default async function PlatformLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const user = await requireAdmin();
+  const user = await requireSuperadmin();
   return (
     <div className="min-h-screen flex flex-col">
       <Nav user={user} />

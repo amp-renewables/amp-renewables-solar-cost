@@ -1,6 +1,13 @@
 // TradeRefer database schema.
-// One DB per licensee (white-label deployment model). Each deployment serves
-// a single solar company plus the tradesman partners who refer work to them.
+//
+// MULTI-TENANT SaaS model:
+//   - The platform (TradeRefer) hosts many `Company` rows.
+//   - Each Company pays £99/month (or is "comped" — e.g. AMP Renewables).
+//   - Each Company has its own /<slug> landing page, its own branding,
+//     its own referrer partners, and its own referrals/payouts/templates.
+//   - SUPERADMIN users (the platform operators, e.g. Joe) can see all.
+//   - COMPANY_ADMIN users own one company and see only that company's data.
+//   - PARTNER users (the referring tradesmen) belong to one company.
 
 generator client {
   provider = "prisma-client-js"
@@ -12,8 +19,16 @@ datasource db {
 }
 
 enum Role {
-  PARTNER
-  ADMIN
+  SUPERADMIN     // TradeRefer platform admin
+  COMPANY_ADMIN  // Owns/runs a Company that pays £99/mo
+  PARTNER        // Refers customers under a Company
+}
+
+enum CompanyStatus {
+  TRIAL          // 14-day free trial, no charge yet
+  ACTIVE         // Paying / comped
+  PAST_DUE       // Last invoice failed — grace period
+  CANCELLED      // No longer billed; read-only access
 }
 
 enum ReferralStatus {
@@ -42,22 +57,82 @@ enum Channel {
   EMAIL
 }
 
-model User {
-  id             String   @id @default(cuid())
-  email          String   @unique
-  hashedPassword String
-  role           Role     @default(PARTNER)
+// A paying customer of the TradeRefer platform.
+// Their landing page lives at /<slug> (e.g. /amprenewables).
+model Company {
+  id   String @id @default(cuid())
+  slug String @unique // /amprenewables, /joes-solar
 
-  // Partner profile (null for admin users)
+  // Public identity
+  name        String
+  contactEmail String  // billing + admin contact
+  contactPhone String?
+  websiteUrl  String?
+  addressLine String?  // displayed in footer
+
+  // Branding
+  logoUrl       String?
+  primaryColor  String @default("#1a3c2a")
+  accentColor   String @default("#52b788")
+  heroSubheading String? // optional one-liner used on /<slug>
+
+  // Programme config (per-company versions of the old env-var settings)
+  services           String[] // ["Solar PV", "Battery Storage", ...]
+  payoutAppointment  Decimal  @db.Decimal(10, 2) @default(50)
+  payoutJob          Decimal  @db.Decimal(10, 2) @default(250)
+  currencySymbol     String   @default("£")
+
+  // Subscription / status
+  status             CompanyStatus @default(TRIAL)
+  isComped           Boolean       @default(false) // never billed (e.g. AMP)
+  trialEndsAt        DateTime?
+  currentPeriodEnd   DateTime?
+
+  // Stripe
+  stripeCustomerId     String? @unique
+  stripeSubscriptionId String? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users     User[]
+  referrals Referral[]
+  templates MessageTemplate[]
+
+  @@index([status])
+}
+
+model User {
+  id             String  @id @default(cuid())
+  email          String  @unique
+  hashedPassword String
+  role           Role    @default(PARTNER)
+
+  // SUPERADMIN has no company. COMPANY_ADMIN and PARTNER do.
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: Restrict)
+
+  // Profile (used by COMPANY_ADMIN and PARTNER)
   fullName     String?
   phone        String?
   businessName String?
+
+  // Bank details for partner payouts (PARTNER only). Captured in dashboard
+  // settings rather than at signup so it doesn't slow the signup flow.
+  // Stored in plain text — fine for sort code / account number under UK
+  // data protection rules; do not add full debit card numbers here.
+  bankAccountName   String?
+  bankSortCode      String?
+  bankAccountNumber String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   referrals Referral[]
   sessions  Session[]
+
+  @@index([companyId])
+  @@index([role])
 }
 
 model Session {
@@ -73,10 +148,13 @@ model Session {
 
 model Referral {
   id        String @id @default(cuid())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
   partnerId String
   partner   User   @relation(fields: [partnerId], references: [id], onDelete: Restrict)
 
-  // Customer details
   customerName  String
   customerPhone String
   customerEmail String
@@ -86,41 +164,39 @@ model Referral {
   city         String
   postcode     String
 
-  // Services interested in (e.g. ["Solar PV", "Battery Storage"])
   services String[]
   notes    String?
 
   status ReferralStatus @default(SUBMITTED)
 
-  appointmentBookedAt   DateTime?
-  appointmentDate       DateTime?
+  appointmentBookedAt    DateTime?
+  appointmentDate        DateTime?
   appointmentCompletedAt DateTime?
-  jobSoldAt             DateTime?
-  jobInstalledAt        DateTime?
-  jobValue              Decimal?  @db.Decimal(10, 2)
-  rejectedReason        String?
+  jobSoldAt              DateTime?
+  jobInstalledAt         DateTime?
+  jobValue               Decimal?  @db.Decimal(10, 2)
+  rejectedReason         String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  payouts          Payout[]
-  statusHistory    ReferralStatusEvent[]
+  payouts       Payout[]
+  statusHistory ReferralStatusEvent[]
 
+  @@index([companyId, status])
+  @@index([companyId, createdAt])
   @@index([partnerId])
-  @@index([status])
-  @@index([createdAt])
 }
 
-// Audit trail for status changes — useful for partner trust and admin debug.
 model ReferralStatusEvent {
-  id         String         @id @default(cuid())
-  referralId String
-  referral   Referral       @relation(fields: [referralId], references: [id], onDelete: Cascade)
-  fromStatus ReferralStatus?
-  toStatus   ReferralStatus
-  changedBy  String?        // user id of the admin who changed it
-  note       String?
-  createdAt  DateTime       @default(now())
+  id              String          @id @default(cuid())
+  referralId      String
+  referral        Referral        @relation(fields: [referralId], references: [id], onDelete: Cascade)
+  fromStatus      ReferralStatus?
+  toStatus        ReferralStatus
+  changedBy       String?
+  note            String?
+  createdAt       DateTime        @default(now())
 
   @@index([referralId])
 }
@@ -133,8 +209,8 @@ model Payout {
   amount     Decimal      @db.Decimal(10, 2)
   status     PayoutStatus @default(PENDING)
   paidAt     DateTime?
-  paidBy     String?      // admin user id who marked it paid
-  paymentRef String?      // e.g. bank reference
+  paidBy     String?
+  paymentRef String?
   notes      String?
 
   createdAt DateTime @default(now())
@@ -144,13 +220,13 @@ model Payout {
   @@index([status])
 }
 
-// Pre-written templates partners can copy to send to their customers.
-// Editable by admins; immutable for partners.
 model MessageTemplate {
   id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
   channel   Channel
   title     String
-  subject   String? // email only
+  subject   String?
   body      String  @db.Text
   sortOrder Int     @default(0)
   active    Boolean @default(true)
@@ -158,5 +234,5 @@ model MessageTemplate {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([channel, active, sortOrder])
+  @@index([companyId, channel, active, sortOrder])
 }

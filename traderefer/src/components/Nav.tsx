@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { brand } from "@/lib/brand";
+import { platform } from "@/lib/platform";
 import type { SessionUser } from "@/lib/auth";
+import type { Company } from "@prisma/client";
 
 const partnerLinks = [
   { href: "/dashboard", label: "Overview" },
@@ -8,34 +9,69 @@ const partnerLinks = [
   { href: "/dashboard/referrals", label: "My referrals" },
   { href: "/dashboard/payouts", label: "Payouts" },
   { href: "/dashboard/templates", label: "Templates" },
+  { href: "/dashboard/settings", label: "Account" },
 ];
 
-const adminLinks = [
-  { href: "/admin", label: "Overview" },
-  { href: "/admin/referrals", label: "Referrals" },
-  { href: "/admin/partners", label: "Partners" },
-  { href: "/admin/payouts", label: "Payouts" },
-  { href: "/admin/templates", label: "Templates" },
+const companyLinks = [
+  { href: "/company", label: "Overview" },
+  { href: "/company/referrals", label: "Referrals" },
+  { href: "/company/partners", label: "Partners" },
+  { href: "/company/payouts", label: "Payouts" },
+  { href: "/company/templates", label: "Templates" },
+  { href: "/company/settings", label: "Settings" },
 ];
 
-export function Nav({ user }: { user: SessionUser }) {
-  const links = user.role === "ADMIN" ? adminLinks : partnerLinks;
+const platformLinks = [
+  { href: "/platform", label: "Overview" },
+  { href: "/platform/companies", label: "Companies" },
+];
+
+export function Nav({
+  user,
+  company,
+}: {
+  user: SessionUser;
+  company?: Company | null;
+}) {
+  const links =
+    user.role === "SUPERADMIN"
+      ? platformLinks
+      : user.role === "COMPANY_ADMIN"
+        ? companyLinks
+        : partnerLinks;
+
+  const rolePill =
+    user.role === "SUPERADMIN"
+      ? "Platform"
+      : user.role === "COMPANY_ADMIN"
+        ? "Admin"
+        : null;
 
   return (
     <header className="bg-brand text-white">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-6">
-          <Link
-            href={user.role === "ADMIN" ? "/admin" : "/dashboard"}
-            className="font-bold text-lg"
-          >
-            {brand.productName}
-            {user.role === "ADMIN" && (
-              <span className="ml-2 text-xs bg-white/20 px-2 py-0.5 rounded">
-                Admin
-              </span>
-            )}
-          </Link>
+        <div className="flex items-center gap-3">
+          {company?.logoUrl ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={company.logoUrl}
+              alt={company.name}
+              className="h-7 w-auto"
+            />
+          ) : (
+            <Link
+              href={links[0]?.href ?? "/"}
+              className="font-bold text-lg"
+              style={{ fontFamily: "Fraunces, serif" }}
+            >
+              {company?.name ?? platform.name}
+            </Link>
+          )}
+          {rolePill && (
+            <span className="text-xs bg-white/20 px-2 py-0.5 rounded">
+              {rolePill}
+            </span>
+          )}
         </div>
         <div className="hidden sm:flex items-center gap-3 text-sm text-emerald-100">
           <span className="hidden md:inline">

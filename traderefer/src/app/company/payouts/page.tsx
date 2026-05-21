@@ -1,32 +1,55 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { formatMoney } from "@/lib/brand";
+import { requireCompanyAdmin } from "@/lib/auth";
+import { getCurrentCompany, formatCompanyMoney } from "@/lib/company";
 import { markPayoutPaidAction } from "./actions";
 
-export default async function AdminPayoutsPage({
+export default async function CompanyPayoutsPage({
   searchParams,
 }: {
   searchParams: Promise<{ status?: string }>;
 }) {
+  const user = await requireCompanyAdmin();
+  const company = await getCurrentCompany();
+  if (!company) return null;
+
   const sp = await searchParams;
   const filter =
     sp.status === "PAID" || sp.status === "CANCELLED" ? sp.status : "PENDING";
 
+  const scope = { referral: { companyId: user.companyId } };
+
   const [payouts, pendingAgg, paidAgg] = await Promise.all([
     prisma.payout.findMany({
-      where: { status: filter },
-      include: { referral: { include: { partner: true } } },
+      where: { status: filter, ...scope },
+      include: {
+        referral: {
+          include: {
+            partner: {
+              select: {
+                businessName: true,
+                fullName: true,
+                email: true,
+                phone: true,
+                bankAccountName: true,
+                bankSortCode: true,
+                bankAccountNumber: true,
+              },
+            },
+          },
+        },
+      },
       orderBy: { createdAt: "desc" },
     }),
     prisma.payout.aggregate({
       _sum: { amount: true },
       _count: true,
-      where: { status: "PENDING" },
+      where: { status: "PENDING", ...scope },
     }),
     prisma.payout.aggregate({
       _sum: { amount: true },
       _count: true,
-      where: { status: "PAID" },
+      where: { status: "PAID", ...scope },
     }),
   ]);
 
@@ -45,7 +68,7 @@ export default async function AdminPayoutsPage({
             Pending
           </div>
           <div className="text-2xl font-bold text-brand mt-1">
-            {formatMoney(Number(pendingAgg._sum.amount ?? 0))}
+            {formatCompanyMoney(company, Number(pendingAgg._sum.amount ?? 0))}
           </div>
           <div className="text-xs text-slate-500 mt-1">
             {pendingAgg._count} payment{pendingAgg._count === 1 ? "" : "s"} to
@@ -57,7 +80,7 @@ export default async function AdminPayoutsPage({
             Paid (all time)
           </div>
           <div className="text-2xl font-bold text-brand mt-1">
-            {formatMoney(Number(paidAgg._sum.amount ?? 0))}
+            {formatCompanyMoney(company, Number(paidAgg._sum.amount ?? 0))}
           </div>
           <div className="text-xs text-slate-500 mt-1">
             {paidAgg._count} payment{paidAgg._count === 1 ? "" : "s"}
@@ -66,14 +89,20 @@ export default async function AdminPayoutsPage({
       </div>
 
       <div className="flex gap-2 text-sm">
-        <FilterTab href="/admin/payouts?status=PENDING" active={filter === "PENDING"}>
+        <FilterTab
+          href="/company/payouts?status=PENDING"
+          active={filter === "PENDING"}
+        >
           Pending
         </FilterTab>
-        <FilterTab href="/admin/payouts?status=PAID" active={filter === "PAID"}>
+        <FilterTab
+          href="/company/payouts?status=PAID"
+          active={filter === "PAID"}
+        >
           Paid
         </FilterTab>
         <FilterTab
-          href="/admin/payouts?status=CANCELLED"
+          href="/company/payouts?status=CANCELLED"
           active={filter === "CANCELLED"}
         >
           Cancelled
@@ -88,33 +117,52 @@ export default async function AdminPayoutsPage({
               <th className="px-4 py-2">Customer</th>
               <th className="px-4 py-2">Reason</th>
               <th className="px-4 py-2">Amount</th>
+              <th className="px-4 py-2">Bank details</th>
               <th className="px-4 py-2 hidden md:table-cell">Created</th>
               <th className="px-4 py-2"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {payouts.map((p) => (
+            {payouts.map((p) => {
+              const partner = p.referral.partner;
+              const hasBank = Boolean(
+                partner.bankSortCode && partner.bankAccountNumber,
+              );
+              return (
               <tr key={p.id}>
                 <td className="px-4 py-3 font-medium">
-                  {p.referral.partner.businessName}
+                  {partner.businessName}
                 </td>
                 <td className="px-4 py-3 text-slate-600">
                   {p.referral.customerName}
                 </td>
                 <td className="px-4 py-3 text-slate-600">
-                  {p.type === "APPOINTMENT"
-                    ? "Appointment booked"
-                    : "Job sold"}
+                  {p.type === "APPOINTMENT" ? "Appointment booked" : "Job sold"}
                 </td>
                 <td className="px-4 py-3 font-medium">
-                  {formatMoney(Number(p.amount))}
+                  {formatCompanyMoney(company, Number(p.amount))}
+                </td>
+                <td className="px-4 py-3 text-xs">
+                  {hasBank ? (
+                    <div className="text-slate-700 font-mono">
+                      <div>{partner.bankAccountName}</div>
+                      <div className="text-slate-500">
+                        {partner.bankSortCode} · {partner.bankAccountNumber}
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-rose-600">Not provided</span>
+                  )}
                 </td>
                 <td className="px-4 py-3 hidden md:table-cell text-slate-500">
                   {p.createdAt.toLocaleDateString("en-GB")}
                 </td>
                 <td className="px-4 py-3 text-right">
                   {p.status === "PENDING" ? (
-                    <form action={markPayoutPaidAction} className="flex gap-2 justify-end">
+                    <form
+                      action={markPayoutPaidAction}
+                      className="flex gap-2 justify-end"
+                    >
                       <input type="hidden" name="payoutId" value={p.id} />
                       <input
                         type="text"
@@ -138,10 +186,11 @@ export default async function AdminPayoutsPage({
                   )}
                 </td>
               </tr>
-            ))}
+              );
+            })}
             {payouts.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
                   Nothing here.
                 </td>
               </tr>

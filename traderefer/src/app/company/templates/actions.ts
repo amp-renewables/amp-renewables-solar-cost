@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth";
+import { requireCompanyAdmin } from "@/lib/auth";
 
 const UpsertSchema = z.object({
   id: z.string().optional(),
@@ -16,7 +16,7 @@ const UpsertSchema = z.object({
 });
 
 export async function upsertTemplateAction(formData: FormData) {
-  await requireAdmin();
+  const admin = await requireCompanyAdmin();
   const parsed = UpsertSchema.parse({
     id: formData.get("id") || undefined,
     channel: formData.get("channel"),
@@ -28,6 +28,14 @@ export async function upsertTemplateAction(formData: FormData) {
   });
 
   if (parsed.id) {
+    // Only allow updating templates in this admin's company.
+    const existing = await prisma.messageTemplate.findUnique({
+      where: { id: parsed.id },
+      select: { companyId: true },
+    });
+    if (!existing || existing.companyId !== admin.companyId) {
+      throw new Error("Not authorised to modify this template");
+    }
     await prisma.messageTemplate.update({
       where: { id: parsed.id },
       data: {
@@ -42,6 +50,7 @@ export async function upsertTemplateAction(formData: FormData) {
   } else {
     await prisma.messageTemplate.create({
       data: {
+        companyId: admin.companyId,
         channel: parsed.channel,
         title: parsed.title,
         subject: parsed.subject ?? null,
@@ -52,15 +61,20 @@ export async function upsertTemplateAction(formData: FormData) {
     });
   }
 
-  revalidatePath("/admin/templates");
+  revalidatePath("/company/templates");
   revalidatePath("/dashboard/templates");
 }
 
 export async function deleteTemplateAction(formData: FormData) {
-  await requireAdmin();
+  const admin = await requireCompanyAdmin();
   const id = String(formData.get("id") || "");
   if (!id) return;
+  const existing = await prisma.messageTemplate.findUnique({
+    where: { id },
+    select: { companyId: true },
+  });
+  if (!existing || existing.companyId !== admin.companyId) return;
   await prisma.messageTemplate.delete({ where: { id } });
-  revalidatePath("/admin/templates");
+  revalidatePath("/company/templates");
   revalidatePath("/dashboard/templates");
 }

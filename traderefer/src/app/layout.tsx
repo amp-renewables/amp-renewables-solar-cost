@@ -1,10 +1,10 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import { brand } from "@/lib/brand";
+import { platform } from "@/lib/platform";
 
 export const metadata: Metadata = {
-  title: `${brand.productName} — Refer & Earn with ${brand.companyName}`,
-  description: `Refer solar customers to ${brand.companyName} and get paid for every appointment booked and job sold.`,
+  title: `${platform.name} — Run your own referral programme`,
+  description: `Let local tradesmen refer customers to you. Pay them per appointment and per job sold. Branded sign-up page, partner dashboards, payout tracking — all included.`,
 };
 
 export default function RootLayout({
@@ -30,7 +30,7 @@ export default function RootLayout({
         />
         <style
           dangerouslySetInnerHTML={{
-            __html: `:root { --brand-primary: ${brand.colors.primary}; --brand-accent: ${brand.colors.accent}; }`,
+            __html: `:root { --brand-primary: ${platform.colors.primary}; --brand-accent: ${platform.colors.accent}; }`,
           }}
         />
       </head>

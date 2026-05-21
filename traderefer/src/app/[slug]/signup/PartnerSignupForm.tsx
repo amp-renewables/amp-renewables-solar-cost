@@ -1,60 +1,30 @@
 "use client";
 
 import { useActionState } from "react";
-import { signupAction, type SignupState } from "./actions";
+import { partnerSignupAction, type PartnerSignupState } from "./actions";
 
-const initial: SignupState = {};
+const initial: PartnerSignupState = {};
 
-export function SignupForm() {
-  const [state, formAction, pending] = useActionState(signupAction, initial);
+export function PartnerSignupForm({ slug }: { slug: string }) {
+  const [state, formAction, pending] = useActionState(
+    partnerSignupAction,
+    initial,
+  );
 
   return (
     <form action={formAction} className="space-y-4">
+      <input type="hidden" name="slug" value={slug} />
       {state.formError && (
         <div className="bg-rose-50 border border-rose-200 text-rose-800 text-sm rounded-lg px-3 py-2">
           {state.formError}
         </div>
       )}
 
-      <Field
-        label="Your name"
-        name="fullName"
-        autoComplete="name"
-        required
-        error={state.errors?.fullName}
-      />
-      <Field
-        label="Business name"
-        name="businessName"
-        autoComplete="organization"
-        required
-        error={state.errors?.businessName}
-      />
-      <Field
-        label="Email"
-        name="email"
-        type="email"
-        autoComplete="email"
-        required
-        error={state.errors?.email}
-      />
-      <Field
-        label="Phone"
-        name="phone"
-        type="tel"
-        autoComplete="tel"
-        required
-        error={state.errors?.phone}
-      />
-      <Field
-        label="Password"
-        name="password"
-        type="password"
-        autoComplete="new-password"
-        required
-        error={state.errors?.password}
-        hint="At least 8 characters"
-      />
+      <Field label="Your name" name="fullName" required error={state.errors?.fullName} />
+      <Field label="Business name" name="businessName" required error={state.errors?.businessName} />
+      <Field label="Email" name="email" type="email" required error={state.errors?.email} />
+      <Field label="Phone" name="phone" type="tel" required error={state.errors?.phone} />
+      <Field label="Password" name="password" type="password" required hint="At least 8 characters" error={state.errors?.password} />
 
       <button
         type="submit"

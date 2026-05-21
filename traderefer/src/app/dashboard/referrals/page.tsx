@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requirePartner } from "@/lib/auth";
+import { getCurrentCompany, formatCompanyMoney } from "@/lib/company";
 import { StatusBadge } from "@/components/StatusBadge";
-import { formatMoney } from "@/lib/brand";
 import { summarisePayouts } from "@/lib/payouts";
 
 export default async function PartnerReferralsPage({
@@ -11,11 +11,13 @@ export default async function PartnerReferralsPage({
   searchParams: Promise<{ submitted?: string }>;
 }) {
   const user = await requirePartner();
+  const company = await getCurrentCompany();
+  if (!company) return null;
   const sp = await searchParams;
   const justSubmitted = sp.submitted === "1";
 
   const referrals = await prisma.referral.findMany({
-    where: { partnerId: user.id },
+    where: { partnerId: user.id, companyId: user.companyId },
     orderBy: { createdAt: "desc" },
     include: { payouts: true },
   });
@@ -83,16 +85,16 @@ export default async function PartnerReferralsPage({
                     </td>
                     <td className="px-4 py-3">
                       <div className="font-medium">
-                        {formatMoney(s.earnedTotal)}
+                        {formatCompanyMoney(company, s.earnedTotal)}
                       </div>
                       {s.pendingTotal > 0 && (
                         <div className="text-xs text-amber-700">
-                          {formatMoney(s.pendingTotal)} pending
+                          {formatCompanyMoney(company, s.pendingTotal)} pending
                         </div>
                       )}
                       {s.paidTotal > 0 && (
                         <div className="text-xs text-emerald-700">
-                          {formatMoney(s.paidTotal)} paid
+                          {formatCompanyMoney(company, s.paidTotal)} paid
                         </div>
                       )}
                     </td>

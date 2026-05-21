@@ -1,140 +1,188 @@
 import Link from "next/link";
-import { brand, formatMoney, totalPotentialPerJob } from "@/lib/brand";
-import { getSessionUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { platform, formatPrice } from "@/lib/platform";
+import { getSessionUser, landingPathForRole } from "@/lib/auth";
 
-export default async function LandingPage() {
+export default async function HomePage() {
   const user = await getSessionUser();
-  if (user) redirect(user.role === "ADMIN" ? "/admin" : "/dashboard");
+  if (user) redirect(landingPathForRole(user.role));
 
   return (
     <div className="min-h-screen">
       <header className="px-6 py-4 flex items-center justify-between max-w-6xl mx-auto">
-        <Link href="/" className="font-bold text-xl text-brand">
-          {brand.productName}
-        </Link>
+        <Logo />
         <nav className="flex items-center gap-3 text-sm">
-          <Link href="/login" className="px-4 py-2 text-brand hover:underline">
+          <Link
+            href="/login"
+            className="px-4 py-2 text-slate-700 hover:underline"
+          >
             Log in
           </Link>
           <Link
             href="/signup"
             className="px-4 py-2 rounded-lg btn-primary font-medium"
           >
-            Sign up
+            Start free trial
           </Link>
         </nav>
       </header>
 
       <section className="bg-brand text-white">
-        <div className="max-w-4xl mx-auto px-6 py-20 text-center">
+        <div className="max-w-4xl mx-auto px-6 py-20 sm:py-28 text-center">
           <span className="inline-block bg-brand-accent text-brand px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-6">
-            Partner Programme
+            For tradesmen &amp; installers
           </span>
           <h1
-            className="text-4xl sm:text-5xl font-bold leading-tight mb-6"
+            className="text-4xl sm:text-6xl font-bold leading-[1.1] mb-6"
             style={{ fontFamily: "Fraunces, serif" }}
           >
-            Refer customers to {brand.companyName}. Earn up to{" "}
-            {formatMoney(totalPotentialPerJob())} per job.
+            Run your own referral programme.
+            <br className="hidden sm:block" /> Get more jobs.
           </h1>
-          <p className="text-lg text-emerald-100 max-w-2xl mx-auto mb-10">
-            A simple referral programme for roofing companies and other trades.
-            Send us a lead — we book the appointment and pay you {" "}
-            {formatMoney(brand.payouts.perAppointment)}. If the job sells,
-            you earn another {formatMoney(brand.payouts.perJob)}.
+          <p className="text-lg sm:text-xl text-emerald-100 max-w-2xl mx-auto mb-10">
+            Let local tradesmen send you customers — and pay them for every
+            appointment booked and every job sold. {platform.name} gives you a
+            branded sign-up page, partner dashboards, payout tracking and
+            ready-made customer messages.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
               href="/signup"
               className="bg-brand-accent text-brand font-semibold px-6 py-3 rounded-lg w-full sm:w-auto"
             >
-              Become a partner →
+              Start your {platform.pricing.trialDays}-day free trial →
             </Link>
             <Link
-              href="/login"
+              href="/amprenewables"
               className="border border-emerald-200 text-emerald-100 px-6 py-3 rounded-lg w-full sm:w-auto hover:bg-white/5"
             >
-              I already have an account
+              See an example
             </Link>
           </div>
+          <p className="text-sm text-emerald-200 mt-6">
+            {formatPrice(platform.pricing.monthly)} / month after trial. Cancel
+            anytime.
+          </p>
         </div>
       </section>
 
       <section className="max-w-5xl mx-auto px-6 py-20">
         <h2
-          className="text-3xl font-bold text-brand text-center mb-12"
+          className="text-3xl sm:text-4xl font-bold text-brand text-center mb-4"
           style={{ fontFamily: "Fraunces, serif" }}
         >
           How it works
         </h2>
+        <p className="text-center text-slate-600 max-w-2xl mx-auto mb-14">
+          Built for solar installers, roofers, plumbers, electricians, heat-pump
+          fitters — anyone who relies on word-of-mouth and wants to systemise
+          it.
+        </p>
         <div className="grid sm:grid-cols-3 gap-8">
           <Step
             n={1}
-            title="Send a referral"
-            body="Spot a customer who could benefit from solar, batteries, EV charging or a heat pump? Submit their details in under a minute."
+            title="Sign up &amp; brand it"
+            body="30-second signup. Upload your logo, set your colours, decide what you pay per appointment and per job sold. You get a branded landing page at /yourcompany."
           />
           <Step
             n={2}
-            title="We book the appointment"
-            body={`Our team contacts the customer and books a free survey. You earn ${formatMoney(brand.payouts.perAppointment)} the moment that appointment is confirmed.`}
+            title="Invite local tradesmen"
+            body="Send them your landing page link. They sign up in seconds and can start sending you customers — name, phone, address, services they want."
           />
           <Step
             n={3}
-            title="They go ahead — you get paid again"
-            body={`If the customer goes ahead with the install, you earn an additional ${formatMoney(brand.payouts.perJob)}. Up to ${formatMoney(totalPotentialPerJob())} per referred customer.`}
+            title="Track &amp; pay out"
+            body="See every referral, update statuses, and payouts are tracked automatically. Partners get a dashboard showing exactly what you owe them. Mark as paid when you've sent the money."
           />
         </div>
       </section>
 
-      <section className="bg-white border-y border-slate-200 py-16">
-        <div className="max-w-3xl mx-auto px-6 text-center">
+      <section className="bg-white border-y border-slate-200 py-20">
+        <div className="max-w-5xl mx-auto px-6">
           <h2
-            className="text-2xl font-bold text-brand mb-4"
+            className="text-3xl font-bold text-brand text-center mb-12"
             style={{ fontFamily: "Fraunces, serif" }}
           >
-            Built for tradesmen, not paperwork
+            Everything you need, nothing you don&apos;t
           </h2>
-          <ul className="text-left space-y-3 max-w-md mx-auto text-slate-700">
-            <li>✓ Track every referral in real time</li>
-            <li>✓ See exactly what you&apos;re owed</li>
-            <li>✓ Ready-to-send SMS &amp; email templates</li>
-            <li>✓ No targets, no tie-ins — refer when it suits you</li>
+          <div className="grid sm:grid-cols-2 gap-x-12 gap-y-6 max-w-3xl mx-auto">
+            <Feature title="Branded landing page" body="Your logo, your colours, your URL — partners sign up under your name." />
+            <Feature title="Custom payouts" body="Set your own rates — £50 / £250, or whatever works for your margins." />
+            <Feature title="Referral tracking" body="Every lead from submission to install, with full status history." />
+            <Feature title="Automatic payout maths" body="When you mark a job sold, the right payout appears for the partner." />
+            <Feature title="Pre-written messages" body="SMS &amp; email templates partners can copy to send to their customers." />
+            <Feature title="Email notifications" body="Get notified instantly when a new referral comes in." />
+          </div>
+        </div>
+      </section>
+
+      <section className="max-w-3xl mx-auto px-6 py-20 text-center">
+        <h2
+          className="text-3xl font-bold text-brand mb-4"
+          style={{ fontFamily: "Fraunces, serif" }}
+        >
+          Simple pricing
+        </h2>
+        <div className="bg-white border border-slate-200 rounded-2xl p-10 mt-8 shadow-sm">
+          <div
+            className="text-6xl font-bold text-brand mb-2"
+            style={{ fontFamily: "Fraunces, serif" }}
+          >
+            {formatPrice(platform.pricing.monthly)}
+            <span className="text-2xl text-slate-400 font-normal">/month</span>
+          </div>
+          <p className="text-slate-600 mb-6">
+            One simple price. Everything included. Cancel anytime.
+          </p>
+          <ul className="text-left max-w-sm mx-auto space-y-2 text-slate-700 mb-8">
+            <li>✓ Unlimited referrers</li>
+            <li>✓ Unlimited referrals</li>
+            <li>✓ Branded landing page</li>
+            <li>✓ Email notifications</li>
+            <li>✓ SMS &amp; email templates</li>
+            <li>✓ {platform.pricing.trialDays}-day free trial</li>
           </ul>
+          <Link
+            href="/signup"
+            className="inline-block btn-primary px-6 py-3 rounded-lg font-semibold"
+          >
+            Start your free trial
+          </Link>
         </div>
       </section>
 
       <section className="bg-brand text-white">
         <div className="max-w-3xl mx-auto px-6 py-16 text-center">
           <h2
-            className="text-3xl font-bold mb-4"
+            className="text-3xl sm:text-4xl font-bold mb-4"
             style={{ fontFamily: "Fraunces, serif" }}
           >
-            Ready to start earning?
+            Want to see it in action?
           </h2>
           <p className="text-emerald-100 mb-8">
-            Sign up takes 30 seconds. No fees, no contracts.
+            Have a look at how AMP Renewables use {platform.name} to run their
+            partner programme.
           </p>
           <Link
-            href="/signup"
+            href="/amprenewables"
             className="inline-block bg-brand-accent text-brand font-semibold px-6 py-3 rounded-lg"
           >
-            Sign up now
+            See the example →
           </Link>
         </div>
       </section>
 
-      <footer className="text-center text-sm text-slate-500 py-8 px-6">
+      <footer className="text-center text-sm text-slate-500 py-8 px-6 space-y-2">
+        <Logo small />
         <p>
-          {brand.productName} is the partner referral platform for{" "}
-          {brand.companyName}. Questions? Email{" "}
+          The referral platform for tradesmen. Questions? Email{" "}
           <a
-            href={`mailto:${brand.supportEmail}`}
+            href={`mailto:${platform.supportEmail}`}
             className="text-brand underline"
           >
-            {brand.supportEmail}
-          </a>{" "}
-          or call {brand.supportPhone}.
+            {platform.supportEmail}
+          </a>
+          .
         </p>
       </footer>
     </div>
@@ -148,7 +196,49 @@ function Step({ n, title, body }: { n: number; title: string; body: string }) {
         {n}
       </div>
       <h3 className="font-semibold text-brand text-lg mb-2">{title}</h3>
-      <p className="text-slate-600 text-sm leading-relaxed">{body}</p>
+      <p
+        className="text-slate-600 text-sm leading-relaxed"
+        dangerouslySetInnerHTML={{ __html: body }}
+      />
     </div>
+  );
+}
+
+function Feature({ title, body }: { title: string; body: string }) {
+  return (
+    <div className="flex gap-3">
+      <span className="text-brand-accent font-bold pt-0.5">✓</span>
+      <div>
+        <div className="font-semibold text-brand">{title}</div>
+        <p
+          className="text-slate-600 text-sm leading-relaxed"
+          dangerouslySetInnerHTML={{ __html: body }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// Wordmark logo. Uses /logo.png if the file is present in /public, otherwise
+// falls back to a styled text wordmark so the page never looks broken.
+function Logo({ small = false }: { small?: boolean }) {
+  return (
+    <Link href="/" className="inline-flex items-center gap-2 group">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/logo.png"
+        alt={platform.name}
+        className={small ? "h-6 w-auto opacity-70" : "h-8 w-auto"}
+        onError={(e) => {
+          (e.target as HTMLImageElement).style.display = "none";
+        }}
+      />
+      <span
+        className={`font-bold ${small ? "text-sm text-slate-400" : "text-xl text-brand"}`}
+        style={{ fontFamily: "Fraunces, serif" }}
+      >
+        {platform.name}
+      </span>
+    </Link>
   );
 }

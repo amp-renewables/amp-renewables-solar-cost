@@ -1,18 +1,20 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
-import { requireAdmin } from "@/lib/auth";
+import { requireCompanyAdmin } from "@/lib/auth";
+import { getCurrentCompany, formatCompanyMoney } from "@/lib/company";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ALL_STATUSES, STATUS_LABELS } from "@/lib/status";
-import { formatMoney } from "@/lib/brand";
 import { updateReferralStatusAction } from "./actions";
 
-export default async function AdminReferralDetailPage({
+export default async function CompanyReferralDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireAdmin();
+  const admin = await requireCompanyAdmin();
+  const company = await getCurrentCompany();
+  if (!company) notFound();
   const { id } = await params;
 
   const referral = await prisma.referral.findUnique({
@@ -23,13 +25,13 @@ export default async function AdminReferralDetailPage({
       statusHistory: { orderBy: { createdAt: "asc" } },
     },
   });
-  if (!referral) notFound();
+  if (!referral || referral.companyId !== admin.companyId) notFound();
 
   return (
     <div className="space-y-6">
       <div>
         <Link
-          href="/admin/referrals"
+          href="/company/referrals"
           className="text-sm text-slate-500 hover:underline"
         >
           ← All referrals
@@ -158,7 +160,7 @@ export default async function AdminReferralDetailPage({
                           : "Job sold"}
                       </td>
                       <td className="py-2 font-medium">
-                        {formatMoney(Number(p.amount))}
+                        {formatCompanyMoney(company, Number(p.amount))}
                       </td>
                       <td className="py-2">{p.status}</td>
                       <td className="py-2 text-slate-500">

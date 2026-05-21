@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
+import { requireCompanyAdmin } from "@/lib/auth";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ALL_STATUSES, STATUS_LABELS } from "@/lib/status";
 import type { ReferralStatus } from "@prisma/client";
 
-export default async function AdminReferralsPage({
+export default async function CompanyReferralsPage({
   searchParams,
 }: {
   searchParams: Promise<{ status?: string; q?: string }>;
 }) {
+  const user = await requireCompanyAdmin();
   const sp = await searchParams;
   const statusFilter = ALL_STATUSES.includes(sp.status as ReferralStatus)
     ? (sp.status as ReferralStatus)
@@ -17,6 +19,7 @@ export default async function AdminReferralsPage({
 
   const referrals = await prisma.referral.findMany({
     where: {
+      companyId: user.companyId,
       ...(statusFilter ? { status: statusFilter } : {}),
       ...(q
         ? {
@@ -85,7 +88,7 @@ export default async function AdminReferralsPage({
           Filter
         </button>
         <Link
-          href="/admin/referrals"
+          href="/company/referrals"
           className="text-sm text-slate-600 underline"
         >
           Clear
@@ -127,7 +130,7 @@ export default async function AdminReferralsPage({
                 </td>
                 <td className="px-4 py-3 text-right">
                   <Link
-                    href={`/admin/referrals/${r.id}`}
+                    href={`/company/referrals/${r.id}`}
                     className="text-brand underline"
                   >
                     Open →

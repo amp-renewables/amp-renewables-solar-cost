@@ -1,18 +1,18 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { brand } from "@/lib/brand";
-import { getSessionUser } from "@/lib/auth";
+import { platform } from "@/lib/platform";
+import { getSessionUser, landingPathForRole } from "@/lib/auth";
 import { LoginForm } from "./LoginForm";
 
 export default async function LoginPage() {
   const user = await getSessionUser();
-  if (user) redirect(user.role === "ADMIN" ? "/admin" : "/dashboard");
+  if (user) redirect(landingPathForRole(user.role));
 
   return (
     <div className="min-h-screen flex flex-col">
       <header className="px-6 py-4 max-w-6xl mx-auto w-full">
         <Link href="/" className="font-bold text-xl text-brand">
-          {brand.productName}
+          {platform.name}
         </Link>
       </header>
       <main className="flex-1 flex items-center justify-center px-6 py-10">

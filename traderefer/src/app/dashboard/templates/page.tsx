@@ -1,28 +1,36 @@
 import { prisma } from "@/lib/db";
 import { requirePartner } from "@/lib/auth";
-import { brand } from "@/lib/brand";
+import { getCurrentCompany } from "@/lib/company";
 import { CopyButton } from "@/components/CopyButton";
 
-// Replace template placeholders with the partner's actual details so the
-// copied text is ready to send straight to their customer.
+// Replace template placeholders with concrete values from the partner's
+// account and the company they're referring to.
 function fillTemplate(
   body: string,
   partner: { fullName: string | null; businessName: string | null },
+  company: {
+    name: string;
+    contactPhone: string | null;
+    contactEmail: string;
+    websiteUrl: string | null;
+  },
 ): string {
   return body
     .replaceAll("{{partnerName}}", partner.fullName || "")
     .replaceAll("{{businessName}}", partner.businessName || "")
-    .replaceAll("{{companyName}}", brand.companyName)
-    .replaceAll("{{supportPhone}}", brand.supportPhone)
-    .replaceAll("{{supportEmail}}", brand.supportEmail)
-    .replaceAll("{{domain}}", brand.domain);
+    .replaceAll("{{companyName}}", company.name)
+    .replaceAll("{{supportPhone}}", company.contactPhone || "")
+    .replaceAll("{{supportEmail}}", company.contactEmail)
+    .replaceAll("{{domain}}", company.websiteUrl || "");
 }
 
 export default async function PartnerTemplatesPage() {
   const user = await requirePartner();
+  const company = await getCurrentCompany();
+  if (!company) return null;
 
   const templates = await prisma.messageTemplate.findMany({
-    where: { active: true },
+    where: { active: true, companyId: user.companyId },
     orderBy: [{ channel: "asc" }, { sortOrder: "asc" }],
   });
 
@@ -50,7 +58,7 @@ export default async function PartnerTemplatesPage() {
         </h2>
         <div className="grid md:grid-cols-2 gap-4">
           {sms.map((t) => {
-            const filled = fillTemplate(t.body, user);
+            const filled = fillTemplate(t.body, user, company);
             return (
               <div
                 key={t.id}
@@ -73,7 +81,7 @@ export default async function PartnerTemplatesPage() {
         </h2>
         <div className="space-y-4">
           {emails.map((t) => {
-            const filled = fillTemplate(t.body, user);
+            const filled = fillTemplate(t.body, user, company);
             return (
               <div
                 key={t.id}

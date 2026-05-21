@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requirePartner } from "@/lib/auth";
-import { brand } from "@/lib/brand";
+import { getCompanyById } from "@/lib/company";
 import { sendNewReferralNotification } from "@/lib/email";
 
 const ReferralSchema = z.object({
@@ -30,9 +30,11 @@ export async function submitReferralAction(
   formData: FormData,
 ): Promise<ReferState> {
   const user = await requirePartner();
+  const company = await getCompanyById(user.companyId);
+  if (!company) return { formError: "Company not found." };
 
   const services = formData.getAll("services").map(String).filter(Boolean);
-  const validServiceSet = new Set(brand.services);
+  const validServiceSet = new Set(company.services);
   const filteredServices = services.filter((s) => validServiceSet.has(s));
 
   const parsed = ReferralSchema.safeParse({
@@ -61,6 +63,7 @@ export async function submitReferralAction(
   const d = parsed.data;
   const referral = await prisma.referral.create({
     data: {
+      companyId: company.id,
       partnerId: user.id,
       customerName: d.customerName,
       customerPhone: d.customerPhone,
@@ -78,10 +81,15 @@ export async function submitReferralAction(
     },
   });
 
-  // Fetch the partner's phone (not on SessionUser) for the notification email.
   const partner = await prisma.user.findUnique({
     where: { id: user.id },
-    select: { id: true, email: true, fullName: true, businessName: true, phone: true },
+    select: {
+      id: true,
+      email: true,
+      fullName: true,
+      businessName: true,
+      phone: true,
+    },
   });
   if (partner) {
     await sendNewReferralNotification(
@@ -98,6 +106,7 @@ export async function submitReferralAction(
         notes: referral.notes,
       },
       partner,
+      company,
     );
   }
 
