@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import {
   getCompanyBySlug,
   formatCompanyMoney,
@@ -17,8 +17,11 @@ export default async function PartnerSignupPage({
   const company = await getCompanyBySlug(slug);
   if (!company) notFound();
 
+  // Allow logged-in users to view this page so company admins can QA their
+  // own partner-signup flow without logging out. The form will still
+  // bounce a logged-in submitter via the action's session check, and we
+  // show a banner up top so admins know what they're looking at.
   const user = await getSessionUser();
-  if (user) redirect(landingPathForRole(user.role));
 
   const payouts = payoutsForCompany(company);
 
@@ -74,6 +77,24 @@ export default async function PartnerSignupPage({
 
       <div className="px-6 py-10 sm:px-12 flex items-center">
         <div className="w-full max-w-md mx-auto">
+          {user && (
+            <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <p className="font-medium">Preview mode</p>
+              <p className="mt-1 text-amber-800">
+                You&apos;re viewing this page as{" "}
+                <span className="font-medium">{user.email}</span>. This is
+                exactly what new partners see — but the form below won&apos;t
+                submit (you&apos;re already logged in).{" "}
+                <Link
+                  href={landingPathForRole(user.role)}
+                  className="underline font-medium"
+                >
+                  Back to {user.role === "PARTNER" ? "dashboard" : "admin"}
+                </Link>
+                .
+              </p>
+            </div>
+          )}
           <h2 className="text-2xl font-bold text-brand mb-2">
             Become a {company.name} partner
           </h2>
