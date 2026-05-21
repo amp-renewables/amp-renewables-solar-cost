@@ -128,8 +128,9 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  referrals Referral[]
-  sessions  Session[]
+  referrals      Referral[]
+  sessions       Session[]
+  resetTokens    PasswordResetToken[]
 
   @@index([companyId])
   @@index([role])
@@ -141,6 +142,23 @@ model Session {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+// Single-use tokens for "forgot password" flow.
+// The DB stores a SHA-256 hash of the token, never the raw value; the raw
+// token is only ever in the link emailed to the user. Tokens expire after
+// 1 hour and are marked used the moment they're consumed.
+model PasswordResetToken {
+  id          String    @id @default(cuid())
+  hashedToken String    @unique
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
 
   @@index([userId])
   @@index([expiresAt])

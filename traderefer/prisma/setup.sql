@@ -77,6 +77,16 @@ CREATE TABLE "Session" (
     CONSTRAINT "Session_pkey" PRIMARY KEY ("id")
 );
 
+CREATE TABLE "PasswordResetToken" (
+    "id" TEXT NOT NULL,
+    "hashedToken" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "usedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "PasswordResetToken_pkey" PRIMARY KEY ("id")
+);
+
 CREATE TABLE "Referral" (
     "id" TEXT NOT NULL,
     "companyId" TEXT NOT NULL,
@@ -154,6 +164,9 @@ CREATE INDEX "User_companyId_idx" ON "User"("companyId");
 CREATE INDEX "User_role_idx" ON "User"("role");
 CREATE INDEX "Session_userId_idx" ON "Session"("userId");
 CREATE INDEX "Session_expiresAt_idx" ON "Session"("expiresAt");
+CREATE UNIQUE INDEX "PasswordResetToken_hashedToken_key" ON "PasswordResetToken"("hashedToken");
+CREATE INDEX "PasswordResetToken_userId_idx" ON "PasswordResetToken"("userId");
+CREATE INDEX "PasswordResetToken_expiresAt_idx" ON "PasswordResetToken"("expiresAt");
 CREATE INDEX "Referral_companyId_status_idx" ON "Referral"("companyId", "status");
 CREATE INDEX "Referral_companyId_createdAt_idx" ON "Referral"("companyId", "createdAt");
 CREATE INDEX "Referral_partnerId_idx" ON "Referral"("partnerId");
@@ -166,6 +179,7 @@ CREATE INDEX "MessageTemplate_companyId_channel_active_sortOrder_idx" ON "Messag
 
 ALTER TABLE "User" ADD CONSTRAINT "User_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "Session" ADD CONSTRAINT "Session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "PasswordResetToken" ADD CONSTRAINT "PasswordResetToken_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "Referral" ADD CONSTRAINT "Referral_companyId_fkey" FOREIGN KEY ("companyId") REFERENCES "Company"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "Referral" ADD CONSTRAINT "Referral_partnerId_fkey" FOREIGN KEY ("partnerId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE "ReferralStatusEvent" ADD CONSTRAINT "ReferralStatusEvent_referralId_fkey" FOREIGN KEY ("referralId") REFERENCES "Referral"("id") ON DELETE CASCADE ON UPDATE CASCADE;
