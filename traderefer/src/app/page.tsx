@@ -28,10 +28,11 @@ export default async function HomePage() {
         </nav>
       </header>
 
+      {/* ───────────────────────── HERO ───────────────────────── */}
       <section className="bg-brand text-white">
         <div className="max-w-4xl mx-auto px-6 py-20 sm:py-28 text-center">
           <span className="inline-block bg-brand-accent text-brand px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-6">
-            For tradesmen &amp; installers
+            For installers, trades &amp; home-service businesses
           </span>
           <h1 className="text-5xl sm:text-7xl font-extrabold leading-[1.02] mb-6 tracking-tight">
             Stop Hoping for Word-of-Mouth.
@@ -51,80 +52,218 @@ export default async function HomePage() {
               href="/signup"
               className="bg-brand-accent text-brand font-semibold px-6 py-3 rounded-lg w-full sm:w-auto"
             >
-              Start your {platform.pricing.trialDays}-day free trial →
+              Launch My Referral Programme →
             </Link>
             <Link
               href="/amprenewables"
               className="border border-slate-500 text-slate-300 px-6 py-3 rounded-lg w-full sm:w-auto hover:bg-white/5"
             >
-              See an example
+              See live example
             </Link>
           </div>
           <p className="text-sm text-slate-400 mt-6">
-            {formatPrice(platform.pricing.monthly)} / month after trial. Cancel
-            anytime.
+            No card required · {platform.pricing.trialDays}-day free trial · {formatPrice(platform.pricing.monthly)}/month
+            after · Cancel anytime
           </p>
         </div>
       </section>
 
-      <section className="max-w-5xl mx-auto px-6 py-20">
-        <h2
-          className="text-3xl sm:text-4xl font-bold text-brand text-center mb-4"
-        >
-          How it works
-        </h2>
-        <p className="text-center text-slate-600 max-w-2xl mx-auto mb-14">
-          Built for solar installers, roofers, plumbers, electricians, heat-pump
-          fitters — anyone who relies on word-of-mouth and wants to systemise
-          it.
-        </p>
-        <div className="grid sm:grid-cols-3 gap-8">
-          <Step
-            n={1}
-            title="Sign up &amp; brand it"
-            body="30-second signup. Upload your logo, set your colours, decide what you pay per appointment and per job sold. You get a branded landing page at /yourcompany."
-          />
-          <Step
-            n={2}
-            title="Invite local tradesmen"
-            body="Send them your landing page link. They sign up in seconds and can start sending you customers — name, phone, address, services they want."
-          />
-          <Step
-            n={3}
-            title="Track &amp; pay out"
-            body="See every referral, update statuses, and payouts are tracked automatically. Partners get a dashboard showing exactly what you owe them. Mark as paid when you've sent the money."
-          />
+      {/* ─────────── PROBLEM AGITATION ─────────── */}
+      <section className="bg-slate-50 border-y border-slate-200 py-20">
+        <div className="max-w-3xl mx-auto px-6">
+          <p className="text-xs uppercase tracking-wider text-brand-accent font-bold mb-3 text-center">
+            The problem
+          </p>
+          <h2 className="text-3xl sm:text-4xl font-bold text-brand text-center mb-6 leading-tight">
+            Your best leads are sitting in other people&apos;s phones.
+          </h2>
+          <p className="text-lg text-slate-700 leading-relaxed mb-6">
+            Every roofer, electrician, plumber, builder, cleaner, estate
+            agent and past customer of yours knows someone who needs work
+            done. But most businesses leave those referrals to chance.
+          </p>
+          <ul className="space-y-2 text-slate-700 text-lg mb-6">
+            <li className="flex gap-3">
+              <span className="text-rose-500 font-bold">✗</span>
+              <span>No system.</span>
+            </li>
+            <li className="flex gap-3">
+              <span className="text-rose-500 font-bold">✗</span>
+              <span>No tracking.</span>
+            </li>
+            <li className="flex gap-3">
+              <span className="text-rose-500 font-bold">✗</span>
+              <span>No proper incentive.</span>
+            </li>
+            <li className="flex gap-3">
+              <span className="text-rose-500 font-bold">✗</span>
+              <span>No follow-up.</span>
+            </li>
+            <li className="flex gap-3">
+              <span className="text-rose-500 font-bold">✗</span>
+              <span>No idea who&apos;s owed what.</span>
+            </li>
+          </ul>
+          <p className="text-xl font-semibold text-brand text-center pt-4 border-t border-slate-200">
+            {platform.name} gives you the system.
+          </p>
         </div>
       </section>
 
-      <section className="bg-white border-y border-slate-200 py-20">
-        <div className="max-w-5xl mx-auto px-6">
-          <h2
-            className="text-3xl font-bold text-brand text-center mb-12"
-          >
-            Everything you need, nothing you don&apos;t
+      {/* ─────────── LIVE EXAMPLE (elevated) ─────────── */}
+      <section className="bg-brand text-white py-20">
+        <div className="max-w-4xl mx-auto px-6">
+          <p className="text-xs uppercase tracking-wider text-brand-accent font-bold mb-3 text-center">
+            Live programme
+          </p>
+          <h2 className="text-3xl sm:text-4xl font-bold text-center mb-6 leading-tight">
+            See a real referral programme in action.
           </h2>
-          <div className="grid sm:grid-cols-2 gap-x-12 gap-y-6 max-w-3xl mx-auto">
-            <Feature title="Branded landing page" body="Your logo, your colours, your URL — partners sign up under your name." />
-            <Feature title="Custom payouts" body="Set your own rates — £50 / £250, or whatever works for your margins." />
-            <Feature title="Referral tracking" body="Every lead from submission to install, with full status history." />
-            <Feature title="Automatic payout maths" body="When you mark a job sold, the right payout appears for the partner." />
-            <Feature title="Pre-written messages" body="SMS &amp; email templates partners can copy to send to their customers." />
-            <Feature title="Email notifications" body="Get notified instantly when a new referral comes in." />
+          <p className="text-center text-slate-300 max-w-2xl mx-auto mb-10 text-lg">
+            AMP Renewables (a solar installer) pays partners{" "}
+            <strong className="text-white">up to £300</strong> per referred
+            customer — all tracked through {platform.name}.
+          </p>
+
+          <div className="grid sm:grid-cols-3 gap-4 mb-10">
+            <PayoutCard
+              amount="£50"
+              when="When the appointment is booked"
+            />
+            <PayoutCard
+              amount="£250"
+              when="When the job sells"
+            />
+            <PayoutCard
+              amount="Up to £300"
+              when="Per referred customer"
+              highlight
+            />
+          </div>
+
+          <div className="text-center">
+            <Link
+              href="/amprenewables"
+              className="inline-block bg-brand-accent text-brand font-semibold px-6 py-3 rounded-lg"
+            >
+              View AMP&apos;s live programme →
+            </Link>
           </div>
         </div>
       </section>
 
+      {/* ─────────── HOW IT WORKS ─────────── */}
+      <section className="max-w-5xl mx-auto px-6 py-20">
+        <p className="text-xs uppercase tracking-wider text-brand-accent font-bold mb-3 text-center">
+          How it works
+        </p>
+        <h2 className="text-3xl sm:text-4xl font-bold text-brand text-center mb-4 leading-tight">
+          Three steps from idea to first paid referral.
+        </h2>
+        <p className="text-center text-slate-600 max-w-2xl mx-auto mb-14">
+          Built for solar installers, roofers, plumbers, electricians,
+          heat-pump fitters — anyone who relies on word-of-mouth and wants
+          to systemise it.
+        </p>
+        <div className="grid sm:grid-cols-3 gap-8">
+          <Step
+            n={1}
+            title="Build your referral programme"
+            body="Upload your logo, choose your colours, set what you'll pay for a booked appointment and for a sold job. You get a branded landing page at /yourcompany — ready to share in minutes."
+          />
+          <Step
+            n={2}
+            title="Invite people who meet your ideal customers"
+            body="Send your link to local trades, past customers, estate agents, landlords, developers — anyone who can put work your way. They sign up in seconds and can start sending you leads."
+          />
+          <Step
+            n={3}
+            title="Track every referral from lead to payout"
+            body="See who sent the lead, what happened next, what stage it's at, and what you owe when the job sells. Partners get their own dashboard. Mark each payout paid once you've sent the money."
+          />
+        </div>
+      </section>
+
+      {/* ─────────── FEATURES AS OUTCOMES ─────────── */}
+      <section className="bg-white border-y border-slate-200 py-20">
+        <div className="max-w-5xl mx-auto px-6">
+          <p className="text-xs uppercase tracking-wider text-brand-accent font-bold mb-3 text-center">
+            What you get
+          </p>
+          <h2 className="text-3xl sm:text-4xl font-bold text-brand text-center mb-12 leading-tight">
+            Everything you need to run a proper referral programme.
+          </h2>
+          <div className="grid sm:grid-cols-2 gap-x-12 gap-y-7 max-w-3xl mx-auto">
+            <Feature
+              title="Look professional from day one"
+              body="Give partners a proper branded sign-up page instead of asking them to text you random leads."
+            />
+            <Feature
+              title="Pay what makes sense for your margins"
+              body="You decide what you pay per booked appointment and per sold job. Higher payouts for high-value jobs, lower for quick wins."
+            />
+            <Feature
+              title="Never lose track of a referral"
+              body="Every lead from submission to install, with full status history and timestamps. Audit trail built in."
+            />
+            <Feature
+              title="No awkward 'what do I owe you?' chats"
+              body="When a lead becomes a sale, the payout appears automatically. Partners see exactly what they've earned. You see exactly what you owe."
+            />
+            <Feature
+              title="Make it easy for partners to promote you"
+              body="Pre-written SMS and email templates partners can copy and send to their customers — so they actually do it."
+            />
+            <Feature
+              title="Know the moment a referral lands"
+              body="Email notifications the second a partner submits a new customer — so you can pick up the phone before the lead goes cold."
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* ─────────── ROI BOX ─────────── */}
+      <section className="max-w-3xl mx-auto px-6 py-20">
+        <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl p-8 sm:p-12">
+          <p className="text-xs uppercase tracking-wider text-brand-accent font-bold mb-3">
+            The maths
+          </p>
+          <h2 className="text-3xl sm:text-4xl font-bold leading-tight mb-6">
+            One referred job pays for {platform.name} for months.
+          </h2>
+          <div className="bg-white/5 border border-white/10 rounded-xl p-6 my-8 space-y-3">
+            <MathRow label="Average job value" value="£5,000" />
+            <MathRow label="Referral payout (to the partner)" value="£250" />
+            <MathRow
+              label={`${platform.name} subscription`}
+              value={`${formatPrice(platform.pricing.monthly)}/month`}
+            />
+            <div className="border-t border-white/10 pt-3 mt-3 flex justify-between text-lg font-semibold">
+              <span>Net result of one referred job</span>
+              <span className="text-brand-accent">
+                Pays for {platform.name} for 4½ months
+              </span>
+            </div>
+          </div>
+          <p className="text-slate-300">
+            If a single referral partner sends you one decent job, the system
+            has already paid for itself — and the partner walks away with
+            cash they wouldn&apos;t have earned otherwise. That&apos;s the
+            point of a programme: nobody loses.
+          </p>
+        </div>
+      </section>
+
+      {/* ─────────── PRICING ─────────── */}
       <section className="max-w-3xl mx-auto px-6 py-20 text-center">
-        <h2
-          className="text-3xl font-bold text-brand mb-4"
-        >
-          Simple pricing
+        <p className="text-xs uppercase tracking-wider text-brand-accent font-bold mb-3">
+          Pricing
+        </p>
+        <h2 className="text-3xl sm:text-4xl font-bold text-brand mb-4 leading-tight">
+          Simple pricing. No card required to try.
         </h2>
         <div className="bg-white border border-slate-200 rounded-2xl p-10 mt-8 shadow-sm">
-          <div
-            className="text-6xl font-bold text-brand mb-2"
-          >
+          <div className="text-6xl font-bold text-brand mb-2">
             {formatPrice(platform.pricing.monthly)}
             <span className="text-2xl text-slate-400 font-normal">/month</span>
           </div>
@@ -137,33 +276,33 @@ export default async function HomePage() {
             <li>✓ Branded landing page</li>
             <li>✓ Email notifications</li>
             <li>✓ SMS &amp; email templates</li>
-            <li>✓ {platform.pricing.trialDays}-day free trial</li>
+            <li>✓ {platform.pricing.trialDays}-day free trial — no card</li>
           </ul>
           <Link
             href="/signup"
             className="inline-block btn-primary px-6 py-3 rounded-lg font-semibold"
           >
-            Start your free trial
+            Launch My Referral Programme →
           </Link>
         </div>
       </section>
 
+      {/* ─────────── FINAL CTA ─────────── */}
       <section className="bg-brand text-white">
         <div className="max-w-3xl mx-auto px-6 py-16 text-center">
-          <h2
-            className="text-3xl sm:text-4xl font-bold mb-4"
-          >
-            Want to see it in action?
+          <h2 className="text-3xl sm:text-4xl font-bold mb-4 leading-tight">
+            Launch your referral programme today.
           </h2>
           <p className="text-slate-300 mb-8">
-            Have a look at how AMP Renewables use {platform.name} to run their
-            partner programme.
+            30 seconds to sign up. No card required.
+            Your branded landing page is live before you&apos;ve put the
+            kettle on.
           </p>
           <Link
-            href="/amprenewables"
+            href="/signup"
             className="inline-block bg-brand-accent text-brand font-semibold px-6 py-3 rounded-lg"
           >
-            See the example →
+            Launch My Referral Programme →
           </Link>
         </div>
       </section>
@@ -198,7 +337,7 @@ function SiteFooter() {
       </nav>
       <p className="text-xs text-slate-400">
         © {new Date().getFullYear()} {platform.name}. The referral platform
-        for tradesmen.
+        for trades, installers and local service businesses.
       </p>
     </footer>
   );
@@ -211,10 +350,7 @@ function Step({ n, title, body }: { n: number; title: string; body: string }) {
         {n}
       </div>
       <h3 className="font-semibold text-brand text-lg mb-2">{title}</h3>
-      <p
-        className="text-slate-600 text-sm leading-relaxed"
-        dangerouslySetInnerHTML={{ __html: body }}
-      />
+      <p className="text-slate-600 text-sm leading-relaxed">{body}</p>
     </div>
   );
 }
@@ -224,13 +360,47 @@ function Feature({ title, body }: { title: string; body: string }) {
     <div className="flex gap-3">
       <span className="text-brand-accent font-bold pt-0.5">✓</span>
       <div>
-        <div className="font-semibold text-brand">{title}</div>
-        <p
-          className="text-slate-600 text-sm leading-relaxed"
-          dangerouslySetInnerHTML={{ __html: body }}
-        />
+        <div className="font-semibold text-brand mb-1">{title}</div>
+        <p className="text-slate-600 text-sm leading-relaxed">{body}</p>
       </div>
     </div>
   );
 }
 
+function PayoutCard({
+  amount,
+  when,
+  highlight,
+}: {
+  amount: string;
+  when: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-xl p-5 border ${
+        highlight
+          ? "bg-brand-accent text-brand border-brand-accent"
+          : "bg-white/5 border-white/15"
+      }`}
+    >
+      <div className="text-3xl font-extrabold mb-1">{amount}</div>
+      <div
+        className={`text-sm ${
+          highlight ? "text-brand opacity-80" : "text-slate-300"
+        }`}
+      >
+        {when}
+      </div>
+    </div>
+  );
+}
+
+function MathRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between items-center text-slate-300">
+      <span>{label}</span>
+      <span className="font-mono font-semibold text-white">{value}</span>
+    </div>
+  );
+}
