@@ -40,7 +40,7 @@ export default async function HomePage() {
             Turn your contacts and customers into a referral engine for your
             business.
           </p>
-          <p className="text-lg text-emerald-100 max-w-2xl mx-auto mb-10">
+          <p className="text-lg text-slate-300 max-w-2xl mx-auto mb-10">
             Let local tradesmen and former customers send you customers — and
             pay them a referral fee. {platform.name} gives you a branded
             sign-up page, partner dashboards, payout tracking and ready-made
@@ -55,12 +55,12 @@ export default async function HomePage() {
             </Link>
             <Link
               href="/amprenewables"
-              className="border border-emerald-200 text-emerald-100 px-6 py-3 rounded-lg w-full sm:w-auto hover:bg-white/5"
+              className="border border-slate-500 text-slate-300 px-6 py-3 rounded-lg w-full sm:w-auto hover:bg-white/5"
             >
               See an example
             </Link>
           </div>
-          <p className="text-sm text-emerald-200 mt-6">
+          <p className="text-sm text-slate-400 mt-6">
             {formatPrice(platform.pricing.monthly)} / month after trial. Cancel
             anytime.
           </p>
@@ -155,7 +155,7 @@ export default async function HomePage() {
           >
             Want to see it in action?
           </h2>
-          <p className="text-emerald-100 mb-8">
+          <p className="text-slate-300 mb-8">
             Have a look at how AMP Renewables use {platform.name} to run their
             partner programme.
           </p>

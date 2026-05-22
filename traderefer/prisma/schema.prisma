@@ -72,8 +72,12 @@ model Company {
 
   // Branding
   logoUrl       String?
-  primaryColor  String @default("#1a3c2a")
-  accentColor   String @default("#52b788")
+  // Defaults match the TradeRefer platform brand (slate + amber). New
+  // tenants land with a neutral on-brand look until they customise via
+  // /company/settings. AMP Renewables (the original tenant) explicitly
+  // stored its own green values so it's unaffected by changes here.
+  primaryColor  String @default("#1e293b")
+  accentColor   String @default("#f59e0b")
   heroSubheading String? // optional one-liner used on /<slug>
 
   // Programme config (per-company versions of the old env-var settings)

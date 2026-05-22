@@ -13,8 +13,13 @@ export const platform = {
     process.env.PLATFORM_SUPPORT_EMAIL || "support@traderefer.co.uk",
 
   colors: {
-    primary: process.env.PLATFORM_PRIMARY_COLOR || "#1a3c2a",
-    accent: process.env.PLATFORM_ACCENT_COLOR || "#52b788",
+    // TradeRefer's own brand. Deliberately distinct from the green
+    // (#1a3c2a / #52b788) AMP Renewables uses — TradeRefer is the
+    // platform, AMP is one tenant. Per-company landing pages and admin
+    // layouts override these via the --brand-primary / --brand-accent
+    // CSS variables.
+    primary: process.env.PLATFORM_PRIMARY_COLOR || "#1e293b",
+    accent: process.env.PLATFORM_ACCENT_COLOR || "#f59e0b",
   },
 
   pricing: {

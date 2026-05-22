@@ -19,12 +19,12 @@ export default async function CompanySignupPage() {
           >
             Run your own referral programme
           </h1>
-          <p className="text-emerald-100 mb-6">
+          <p className="text-slate-300 mb-6">
             {platform.pricing.trialDays}-day free trial. No card needed today.
             After that, {formatPrice(platform.pricing.monthly)}/month. Cancel
             anytime.
           </p>
-          <ul className="space-y-2 text-emerald-100 text-sm">
+          <ul className="space-y-2 text-slate-300 text-sm">
             <li>✓ Branded landing page at /yourcompany</li>
             <li>✓ Unlimited referrers &amp; referrals</li>
             <li>✓ Custom payout amounts</li>
@@ -32,7 +32,7 @@ export default async function CompanySignupPage() {
             <li>✓ SMS &amp; email templates for your partners</li>
           </ul>
         </div>
-        <p className="text-sm text-emerald-200">
+        <p className="text-sm text-slate-400">
           Already have an account?{" "}
           <Link href="/login" className="underline">
             Log in
