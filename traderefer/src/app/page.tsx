@@ -229,27 +229,37 @@ export default async function HomePage() {
             The maths
           </p>
           <h2 className="text-3xl sm:text-4xl font-bold leading-tight mb-6">
-            One referred job pays for {platform.name} for months.
+            One referred job pays for {platform.name} for years.
           </h2>
           <div className="bg-white/5 border border-white/10 rounded-xl p-6 my-8 space-y-3">
             <MathRow label="Average job value" value="£5,000" />
-            <MathRow label="Referral payout (to the partner)" value="£250" />
+            <MathRow label="Referral payout (to your partner)" value="− £250" />
+            <div className="border-t border-white/10 pt-3 flex justify-between text-base">
+              <span className="text-slate-300">You keep</span>
+              <span className="font-mono font-semibold text-white">
+                £4,750
+              </span>
+            </div>
             <MathRow
               label={`${platform.name} subscription`}
               value={`${formatPrice(platform.pricing.monthly)}/month`}
             />
             <div className="border-t border-white/10 pt-3 mt-3 flex justify-between text-lg font-semibold">
-              <span>Net result of one referred job</span>
+              <span>That one job covers</span>
               <span className="text-brand-accent">
-                Pays for {platform.name} for 4½ months
+                ~48 months of {platform.name}
               </span>
             </div>
           </div>
           <p className="text-slate-300">
-            If a single referral partner sends you one decent job, the system
-            has already paid for itself — and the partner walks away with
-            cash they wouldn&apos;t have earned otherwise. That&apos;s the
-            point of a programme: nobody loses.
+            Even after paying the partner their £250, a single referred job
+            covers your subscription for the best part of four years. So{" "}
+            <strong className="text-white">
+              a programme that produces just one decent referral a year
+            </strong>{" "}
+            has paid for itself many times over — and your partner walks
+            away with cash they wouldn&apos;t have earned otherwise. Nobody
+            loses.
           </p>
         </div>
       </section>
