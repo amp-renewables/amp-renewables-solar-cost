@@ -49,7 +49,6 @@ export default async function CompanyLandingPage({
           ) : (
             <span
               className="font-bold text-xl text-brand"
-              style={{ fontFamily: "Fraunces, serif" }}
             >
               {company.name}
             </span>
@@ -75,7 +74,6 @@ export default async function CompanyLandingPage({
           </span>
           <h1
             className="text-4xl sm:text-5xl font-bold leading-tight mb-6"
-            style={{ fontFamily: "Fraunces, serif" }}
           >
             Refer customers to {company.name}. Earn up to{" "}
             {formatCompanyMoney(company, payouts.total)} per job.
@@ -104,7 +102,6 @@ export default async function CompanyLandingPage({
       <section className="max-w-5xl mx-auto px-6 py-20">
         <h2
           className="text-3xl font-bold text-brand text-center mb-12"
-          style={{ fontFamily: "Fraunces, serif" }}
         >
           How it works
         </h2>
@@ -131,7 +128,6 @@ export default async function CompanyLandingPage({
         <div className="max-w-3xl mx-auto px-6 text-center">
           <h2
             className="text-2xl font-bold text-brand mb-4"
-            style={{ fontFamily: "Fraunces, serif" }}
           >
             What {company.name} cover
           </h2>
@@ -152,7 +148,6 @@ export default async function CompanyLandingPage({
         <div className="max-w-3xl mx-auto px-6 py-16 text-center">
           <h2
             className="text-3xl font-bold mb-4"
-            style={{ fontFamily: "Fraunces, serif" }}
           >
             Ready to start earning?
           </h2>
@@ -187,7 +182,18 @@ export default async function CompanyLandingPage({
             {company.contactEmail}
           </a>
         </p>
-        <p className="text-slate-400 pt-4">
+        <nav className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-slate-500 pt-4">
+          <Link href="/help" className="hover:text-brand">
+            Help
+          </Link>
+          <Link href="/terms" className="hover:text-brand">
+            Terms
+          </Link>
+          <Link href="/privacy" className="hover:text-brand">
+            Privacy
+          </Link>
+        </nav>
+        <p className="text-slate-400">
           Programme powered by{" "}
           <Link href="/" className="underline">
             {platform.name}

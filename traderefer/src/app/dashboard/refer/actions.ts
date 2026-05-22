@@ -19,6 +19,15 @@ const ReferralSchema = z.object({
   postcode: z.string().trim().min(3, "Postcode required"),
   services: z.array(z.string()).min(1, "Pick at least one service"),
   notes: z.string().trim().optional(),
+  // Hard requirement under UK data protection rules — the partner must
+  // tick the box confirming customer consent before we'll accept the
+  // referral. The literal "1" comes from the checkbox value on the form.
+  customerConsentConfirmed: z.literal("1", {
+    errorMap: () => ({
+      message:
+        "You must confirm the customer has given you permission to share their details.",
+    }),
+  }),
 });
 
 export type ReferState = {
@@ -49,6 +58,7 @@ export async function submitReferralAction(
     postcode: formData.get("postcode"),
     services: filteredServices,
     notes: formData.get("notes") || undefined,
+    customerConsentConfirmed: formData.get("customerConsentConfirmed"),
   });
 
   if (!parsed.success) {
@@ -76,6 +86,10 @@ export async function submitReferralAction(
       postcode: d.postcode.toUpperCase(),
       services: d.services,
       notes: d.notes || null,
+      // The schema's `literal("1")` validator above guarantees we only
+      // reach here when the partner ticked the box — record the consent.
+      customerConsentConfirmed: true,
+      customerConsentConfirmedAt: new Date(),
       status: "SUBMITTED",
       statusHistory: {
         create: { toStatus: "SUBMITTED", changedBy: user.id },

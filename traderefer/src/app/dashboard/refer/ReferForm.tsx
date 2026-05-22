@@ -5,7 +5,13 @@ import { submitReferralAction, type ReferState } from "./actions";
 
 const initial: ReferState = {};
 
-export function ReferForm({ services }: { services: readonly string[] }) {
+export function ReferForm({
+  services,
+  companyName,
+}: {
+  services: readonly string[];
+  companyName: string;
+}) {
   const [state, formAction, pending] = useActionState(
     submitReferralAction,
     initial,
@@ -98,6 +104,37 @@ export function ReferForm({ services }: { services: readonly string[] }) {
           className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand"
         />
       </Section>
+
+      <div
+        className={`bg-amber-50 border rounded-xl p-4 ${
+          state.errors?.customerConsentConfirmed
+            ? "border-rose-400"
+            : "border-amber-200"
+        }`}
+      >
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            name="customerConsentConfirmed"
+            value="1"
+            required
+            className="mt-0.5 accent-emerald-700 h-4 w-4 flex-shrink-0"
+          />
+          <span className="text-sm text-amber-900">
+            <strong>I have the customer&apos;s permission</strong> to share
+            their name, phone number, email and address with {companyName}.
+            <span className="block text-xs text-amber-800 mt-1">
+              Required under UK data protection law. We record the date and
+              time you confirmed this in case of a complaint.
+            </span>
+          </span>
+        </label>
+        {state.errors?.customerConsentConfirmed && (
+          <p className="text-xs text-rose-700 mt-2">
+            {state.errors.customerConsentConfirmed}
+          </p>
+        )}
+      </div>
 
       <button
         type="submit"

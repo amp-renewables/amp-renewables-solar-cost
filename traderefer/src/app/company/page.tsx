@@ -131,7 +131,6 @@ export default async function CompanyOverviewPage() {
       <div>
         <h1
           className="text-2xl font-bold text-brand"
-          style={{ fontFamily: "Fraunces, serif" }}
         >
           Overview
         </h1>

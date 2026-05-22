@@ -54,7 +54,6 @@ export default async function DashboardOverviewPage() {
         <div>
           <h1
             className="text-2xl font-bold text-brand"
-            style={{ fontFamily: "Fraunces, serif" }}
           >
             Hi {user.fullName?.split(" ")[0] || "there"}
           </h1>
@@ -116,7 +115,6 @@ export default async function DashboardOverviewPage() {
           </p>
           <h2
             className="text-xl sm:text-2xl font-bold mb-2"
-            style={{ fontFamily: "Fraunces, serif" }}
           >
             You&apos;ve got customers too. Get paid to refer them.
           </h2>

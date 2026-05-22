@@ -33,18 +33,18 @@ export default async function HomePage() {
           <span className="inline-block bg-brand-accent text-brand px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-6">
             For tradesmen &amp; installers
           </span>
-          <h1
-            className="text-4xl sm:text-6xl font-bold leading-[1.1] mb-6"
-            style={{ fontFamily: "Fraunces, serif" }}
-          >
-            Run your own referral programme.
-            <br className="hidden sm:block" /> Get more jobs.
+          <h1 className="text-5xl sm:text-7xl font-extrabold leading-[1.02] mb-6 tracking-tight">
+            Weaponise Your Contacts.
           </h1>
-          <p className="text-lg sm:text-xl text-emerald-100 max-w-2xl mx-auto mb-10">
-            Let local tradesmen send you customers — and pay them for every
-            appointment booked and every job sold. {platform.name} gives you a
-            branded sign-up page, partner dashboards, payout tracking and
-            ready-made customer messages.
+          <p className="text-xl sm:text-2xl text-white font-semibold max-w-2xl mx-auto mb-6 leading-snug">
+            Turn your contacts and customers into a referral engine for your
+            business.
+          </p>
+          <p className="text-lg text-emerald-100 max-w-2xl mx-auto mb-10">
+            Let local tradesmen and former customers send you customers — and
+            pay them a referral fee. {platform.name} gives you a branded
+            sign-up page, partner dashboards, payout tracking and ready-made
+            customer messages.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
@@ -70,7 +70,6 @@ export default async function HomePage() {
       <section className="max-w-5xl mx-auto px-6 py-20">
         <h2
           className="text-3xl sm:text-4xl font-bold text-brand text-center mb-4"
-          style={{ fontFamily: "Fraunces, serif" }}
         >
           How it works
         </h2>
@@ -102,7 +101,6 @@ export default async function HomePage() {
         <div className="max-w-5xl mx-auto px-6">
           <h2
             className="text-3xl font-bold text-brand text-center mb-12"
-            style={{ fontFamily: "Fraunces, serif" }}
           >
             Everything you need, nothing you don&apos;t
           </h2>
@@ -120,14 +118,12 @@ export default async function HomePage() {
       <section className="max-w-3xl mx-auto px-6 py-20 text-center">
         <h2
           className="text-3xl font-bold text-brand mb-4"
-          style={{ fontFamily: "Fraunces, serif" }}
         >
           Simple pricing
         </h2>
         <div className="bg-white border border-slate-200 rounded-2xl p-10 mt-8 shadow-sm">
           <div
             className="text-6xl font-bold text-brand mb-2"
-            style={{ fontFamily: "Fraunces, serif" }}
           >
             {formatPrice(platform.pricing.monthly)}
             <span className="text-2xl text-slate-400 font-normal">/month</span>
@@ -156,7 +152,6 @@ export default async function HomePage() {
         <div className="max-w-3xl mx-auto px-6 py-16 text-center">
           <h2
             className="text-3xl sm:text-4xl font-bold mb-4"
-            style={{ fontFamily: "Fraunces, serif" }}
           >
             Want to see it in action?
           </h2>
@@ -173,22 +168,39 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <footer className="text-center text-sm text-slate-500 py-8 px-6 space-y-3">
-        <div className="flex justify-center opacity-60">
-          <Logo variant="dark" size="sm" />
-        </div>
-        <p>
-          The referral platform for tradesmen. Questions? Email{" "}
-          <a
-            href={`mailto:${platform.supportEmail}`}
-            className="text-brand underline"
-          >
-            {platform.supportEmail}
-          </a>
-          .
-        </p>
-      </footer>
+      <SiteFooter />
     </div>
+  );
+}
+
+function SiteFooter() {
+  return (
+    <footer className="text-center text-sm text-slate-500 py-10 px-6 space-y-4 border-t border-slate-200 mt-12">
+      <div className="flex justify-center opacity-60">
+        <Logo variant="dark" size="sm" />
+      </div>
+      <nav className="flex flex-wrap justify-center gap-x-5 gap-y-2 text-slate-600">
+        <Link href="/help" className="hover:text-brand">
+          Help
+        </Link>
+        <Link href="/terms" className="hover:text-brand">
+          Terms
+        </Link>
+        <Link href="/privacy" className="hover:text-brand">
+          Privacy
+        </Link>
+        <a
+          href={`mailto:${platform.supportEmail}`}
+          className="hover:text-brand"
+        >
+          Contact
+        </a>
+      </nav>
+      <p className="text-xs text-slate-400">
+        © {new Date().getFullYear()} {platform.name}. The referral platform
+        for tradesmen.
+      </p>
+    </footer>
   );
 }
 

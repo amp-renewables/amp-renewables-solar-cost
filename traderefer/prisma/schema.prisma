@@ -185,6 +185,16 @@ model Referral {
   services String[]
   notes    String?
 
+  // GDPR / data-protection record. The partner ticks a box on the refer
+  // form confirming they have the customer's permission to share their
+  // details with the receiving company. customerConsentConfirmedAt is set
+  // server-side at submission so we have an auditable timestamp; the
+  // boolean is kept for fast filtering. Existing rows pre-dating this
+  // field default to false — meaning we explicitly don't claim consent
+  // we didn't capture.
+  customerConsentConfirmed   Boolean   @default(false)
+  customerConsentConfirmedAt DateTime?
+
   status ReferralStatus @default(SUBMITTED)
 
   appointmentBookedAt    DateTime?

@@ -25,7 +25,6 @@ export default function GlobalError({
       <div className="max-w-md w-full bg-white border border-slate-200 rounded-xl p-8 text-center">
         <h1
           className="text-2xl font-bold text-brand"
-          style={{ fontFamily: "Fraunces, serif" }}
         >
           Something went wrong
         </h1>

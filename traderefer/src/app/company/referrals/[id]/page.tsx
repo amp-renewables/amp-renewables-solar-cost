@@ -40,7 +40,6 @@ export default async function CompanyReferralDetailPage({
           <div>
             <h1
               className="text-2xl font-bold text-brand"
-              style={{ fontFamily: "Fraunces, serif" }}
             >
               {referral.customerName}
             </h1>

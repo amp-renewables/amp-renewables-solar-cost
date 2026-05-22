@@ -22,7 +22,6 @@ export default async function PartnerSettingsPage() {
     <div className="space-y-8 max-w-2xl">
       <h1
         className="text-2xl font-bold text-brand"
-        style={{ fontFamily: "Fraunces, serif" }}
       >
         Your account
       </h1>

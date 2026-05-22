@@ -42,7 +42,6 @@ export default async function PartnerTemplatesPage() {
       <div>
         <h1
           className="text-2xl font-bold text-brand"
-          style={{ fontFamily: "Fraunces, serif" }}
         >
           Customer message templates
         </h1>

@@ -10,7 +10,6 @@ export default function NotFound() {
         </p>
         <h1
           className="text-2xl font-bold text-brand mt-2"
-          style={{ fontFamily: "Fraunces, serif" }}
         >
           Page not found
         </h1>

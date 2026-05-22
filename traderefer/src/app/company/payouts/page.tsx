@@ -57,7 +57,6 @@ export default async function CompanyPayoutsPage({
     <div className="space-y-6">
       <h1
         className="text-2xl font-bold text-brand"
-        style={{ fontFamily: "Fraunces, serif" }}
       >
         Payouts
       </h1>

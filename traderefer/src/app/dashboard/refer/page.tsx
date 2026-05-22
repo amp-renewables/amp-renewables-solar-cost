@@ -15,7 +15,6 @@ export default async function ReferPage() {
     <div className="max-w-2xl mx-auto">
       <h1
         className="text-2xl font-bold text-brand mb-2"
-        style={{ fontFamily: "Fraunces, serif" }}
       >
         Refer a customer
       </h1>
@@ -28,7 +27,7 @@ export default async function ReferPage() {
         {formatCompanyMoney(company, payouts.total)} per customer.
       </p>
 
-      <ReferForm services={company.services} />
+      <ReferForm services={company.services} companyName={company.name} />
     </div>
   );
 }

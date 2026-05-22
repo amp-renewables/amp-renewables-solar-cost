@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import { platform } from "@/lib/platform";
 
 export const metadata: Metadata = {
-  title: `${platform.name} — Run your own referral programme`,
-  description: `Let local tradesmen refer customers to you. Pay them per appointment and per job sold. Branded sign-up page, partner dashboards, payout tracking — all included.`,
+  title: `${platform.name} — Turn your contacts into a referral engine`,
+  description: `Turn local tradesmen and former customers into a referral engine for your business. Branded sign-up page, partner dashboards, payout tracking — all included.`,
 };
 
 export default function RootLayout({
@@ -15,17 +15,14 @@ export default function RootLayout({
   return (
     <html lang="en-GB">
       <head>
-        <link
-          rel="preconnect"
-          href="https://fonts.googleapis.com"
-        />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
           rel="preconnect"
           href="https://fonts.gstatic.com"
           crossOrigin=""
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Fraunces:wght@700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
           rel="stylesheet"
         />
         <style
@@ -34,7 +31,14 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body style={{ fontFamily: "'DM Sans', sans-serif" }}>{children}</body>
+      <body
+        style={{
+          fontFamily:
+            "'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+        }}
+      >
+        {children}
+      </body>
     </html>
   );
 }

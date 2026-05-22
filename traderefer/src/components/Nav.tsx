@@ -63,7 +63,6 @@ export function Nav({
             <Link
               href={links[0]?.href ?? "/"}
               className="font-bold text-lg"
-              style={{ fontFamily: "Fraunces, serif" }}
             >
               {company?.name ?? platform.name}
             </Link>

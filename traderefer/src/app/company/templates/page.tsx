@@ -13,7 +13,6 @@ export default async function CompanyTemplatesPage() {
     <div className="space-y-8">
       <h1
         className="text-2xl font-bold text-brand"
-        style={{ fontFamily: "Fraunces, serif" }}
       >
         Message templates
       </h1>

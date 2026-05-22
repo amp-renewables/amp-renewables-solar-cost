@@ -41,7 +41,6 @@ export default async function CompanyBillingPage({
       <div>
         <h1
           className="text-2xl font-bold text-brand"
-          style={{ fontFamily: "Fraunces, serif" }}
         >
           Billing
         </h1>

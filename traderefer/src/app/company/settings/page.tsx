@@ -34,7 +34,6 @@ export default async function CompanySettingsPage({
         <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl px-5 py-5 space-y-3">
           <h2
             className="font-bold text-lg"
-            style={{ fontFamily: "Fraunces, serif" }}
           >
             Welcome to {platform.name}, {company.name}!
           </h2>
@@ -80,7 +79,6 @@ export default async function CompanySettingsPage({
       <div>
         <h1
           className="text-2xl font-bold text-brand"
-          style={{ fontFamily: "Fraunces, serif" }}
         >
           Settings
         </h1>
