@@ -34,17 +34,17 @@ export default async function HomePage() {
             For tradesmen &amp; installers
           </span>
           <h1 className="text-5xl sm:text-7xl font-extrabold leading-[1.02] mb-6 tracking-tight">
-            Weaponise Your Contacts.
+            Stop Hoping for Word-of-Mouth.
+            <br />
+            Systemise It.
           </h1>
-          <p className="text-xl sm:text-2xl text-white font-semibold max-w-2xl mx-auto mb-6 leading-snug">
-            Turn your contacts and customers into a referral engine for your
-            business.
+          <p className="text-xl sm:text-2xl text-white font-semibold max-w-2xl mx-auto mb-4 leading-snug">
+            Weaponise your contacts.
           </p>
-          <p className="text-lg text-slate-300 max-w-2xl mx-auto mb-10">
-            Let local tradesmen and former customers send you customers — and
-            pay them a referral fee. {platform.name} gives you a branded
-            sign-up page, partner dashboards, payout tracking and ready-made
-            customer messages.
+          <p className="text-lg text-slate-300 max-w-2xl mx-auto mb-10 leading-relaxed">
+            {platform.name} lets installers and trades businesses launch
+            their own branded referral programme in minutes — with partner
+            sign-ups, referral tracking and payout records built in.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
