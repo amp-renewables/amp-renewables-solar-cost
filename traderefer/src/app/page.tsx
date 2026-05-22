@@ -222,45 +222,101 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ─────────── ROI BOX ─────────── */}
+      {/* ─────────── THE OFFER (Hormozi-style) ─────────── */}
       <section className="max-w-3xl mx-auto px-6 py-20">
         <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl p-8 sm:p-12">
           <p className="text-xs uppercase tracking-wider text-brand-accent font-bold mb-3">
-            The maths
+            The offer
           </p>
           <h2 className="text-3xl sm:text-4xl font-bold leading-tight mb-6">
-            One referred job pays for {platform.name} for years.
+            You already know who could send you work.
+            <br />
+            You just need a system that turns them into a sales team.
           </h2>
-          <div className="bg-white/5 border border-white/10 rounded-xl p-6 my-8 space-y-3">
-            <MathRow label="Average job value" value="£5,000" />
-            <MathRow label="Referral payout (to your partner)" value="− £250" />
-            <div className="border-t border-white/10 pt-3 flex justify-between text-base">
-              <span className="text-slate-300">You keep</span>
-              <span className="font-mono font-semibold text-white">
-                £4,750
-              </span>
-            </div>
-            <MathRow
-              label={`${platform.name} subscription`}
-              value={`${formatPrice(platform.pricing.monthly)}/month`}
-            />
-            <div className="border-t border-white/10 pt-3 mt-3 flex justify-between text-lg font-semibold">
-              <span>That one job covers</span>
-              <span className="text-brand-accent">
-                ~48 months of {platform.name}
-              </span>
-            </div>
-          </div>
-          <p className="text-slate-300">
-            Even after paying the partner their £250, a single referred job
-            covers your subscription for the best part of four years. So{" "}
-            <strong className="text-white">
-              a programme that produces just one decent referral a year
-            </strong>{" "}
-            has paid for itself many times over — and your partner walks
-            away with cash they wouldn&apos;t have earned otherwise. Nobody
-            loses.
+          <p className="text-slate-300 mb-10 text-lg">
+            Past customers. Local trades. Suppliers. Their suppliers. Estate
+            agents. Right now they&apos;re not sending you anything because
+            there&apos;s no reason to and no system for it.{" "}
+            <strong className="text-white">{platform.name} is the system.</strong>
           </p>
+
+          <div className="bg-white/5 border border-white/10 rounded-xl p-6 sm:p-8 mb-6">
+            <p className="text-xs uppercase tracking-wider text-brand-accent font-bold mb-4">
+              Here&apos;s what you get
+            </p>
+            <ul className="space-y-3 text-slate-100">
+              <OfferLine>
+                Your own branded sign-up page — your logo, your colours,
+                your URL — live in under 60 seconds
+              </OfferLine>
+              <OfferLine>
+                Unlimited partners. Your contacts and theirs.
+                No per-seat fees, no caps
+              </OfferLine>
+              <OfferLine>
+                Unlimited referrals. Track 5 a year or 5 a day — same price
+              </OfferLine>
+              <OfferLine>
+                Every lead tracked from first call → appointment → signed
+                job, with full audit trail
+              </OfferLine>
+              <OfferLine>
+                Automatic payout maths so you never have an awkward
+                &quot;what do I owe you?&quot; conversation
+              </OfferLine>
+              <OfferLine>
+                Pre-written SMS &amp; email templates your partners can
+                copy and send — so they actually share you
+              </OfferLine>
+              <OfferLine>
+                Email alerts the moment a referral lands so you can call
+                while the lead is hot
+              </OfferLine>
+            </ul>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-xl p-6 sm:p-8 mb-10">
+            <p className="text-xs uppercase tracking-wider text-brand-accent font-bold mb-4">
+              And here&apos;s the catch (there isn&apos;t one)
+            </p>
+            <ul className="space-y-3 text-slate-100">
+              <OfferLine icon="🔒">
+                <strong className="text-white">
+                  Partners only earn when they actually deliver.
+                </strong>{" "}
+                No payment until an appointment is booked or a job is sold.
+                If a referral fizzles, you owe nothing
+              </OfferLine>
+              <OfferLine icon="🔒">
+                <strong className="text-white">
+                  {platform.name} costs less than your phone bill.
+                </strong>{" "}
+                Flat {formatPrice(platform.pricing.monthly)}/month — no
+                tiers, no per-user, no add-ons
+              </OfferLine>
+              <OfferLine icon="🔒">
+                <strong className="text-white">
+                  Doesn&apos;t produce? Cancel anytime.
+                </strong>{" "}
+                No commitment, no contract, no questions asked
+              </OfferLine>
+            </ul>
+          </div>
+
+          <div className="border-t border-white/15 pt-8 text-center">
+            <p className="text-2xl sm:text-3xl font-bold leading-snug mb-3">
+              You have a hidden sales team in your phone contacts.
+              <br />
+              <span className="text-brand-accent">
+                {platform.name} is what activates them.
+              </span>
+            </p>
+            <p className="text-slate-400 text-sm mt-6">
+              What else can you buy for {formatPrice(platform.pricing.monthly)}/month
+              that has any chance of putting a five-figure job through your
+              door?
+            </p>
+          </div>
         </div>
       </section>
 
@@ -406,11 +462,19 @@ function PayoutCard({
   );
 }
 
-function MathRow({ label, value }: { label: string; value: string }) {
+function OfferLine({
+  children,
+  icon = "✓",
+}: {
+  children: React.ReactNode;
+  icon?: string;
+}) {
   return (
-    <div className="flex justify-between items-center text-slate-300">
-      <span>{label}</span>
-      <span className="font-mono font-semibold text-white">{value}</span>
-    </div>
+    <li className="flex gap-3 leading-relaxed">
+      <span className="text-brand-accent font-bold flex-shrink-0 mt-0.5">
+        {icon}
+      </span>
+      <span>{children}</span>
+    </li>
   );
 }
