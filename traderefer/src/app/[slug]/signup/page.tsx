@@ -35,12 +35,15 @@ export default async function PartnerSignupPage({
 
       <div className="bg-brand text-white px-8 py-12 flex flex-col justify-between">
         <div className="flex items-center gap-3">
-          {company.logoUrl ? (
+          {/* Dark panel — prefer the light/inverse logo. If only a standard
+              logo is uploaded, fall back to company name as text rather
+              than risk the dark logo disappearing into the background. */}
+          {company.logoUrlLight ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
-              src={company.logoUrl}
+              src={company.logoUrlLight}
               alt={company.name}
-              className="h-10 w-auto bg-white/10 p-1 rounded"
+              className="h-10 w-auto"
             />
           ) : (
             <span className="font-bold text-xl">{company.name}</span>

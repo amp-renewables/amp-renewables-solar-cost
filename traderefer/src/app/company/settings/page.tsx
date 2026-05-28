@@ -98,6 +98,7 @@ export default async function CompanySettingsPage({
 
       <LogoUpload
         currentLogoUrl={company.logoUrl}
+        currentLogoUrlLight={company.logoUrlLight}
         companyName={company.name}
       />
 

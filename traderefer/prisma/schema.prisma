@@ -72,6 +72,10 @@ model Company {
 
   // Branding
   logoUrl       String?
+  // Light/inverse logo for use on dark backgrounds (signup landing left
+  // panel, admin nav, partner nav). If null, those surfaces fall back to
+  // rendering the company name as text in the brand-accent colour.
+  logoUrlLight  String?
   // Defaults match the TradeRefer platform brand (slate + amber). New
   // tenants land with a neutral on-brand look until they customise via
   // /company/settings. AMP Renewables (the original tenant) explicitly

@@ -52,10 +52,14 @@ export function Nav({
     <header className="bg-brand text-white">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          {company?.logoUrl ? (
+          {/* This nav sits on the dark --brand-primary background, so prefer
+              the company's light/inverse logo. If none uploaded, fall back to
+              their name as text — better than showing a dark logo that
+              disappears into the background. */}
+          {company?.logoUrlLight ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
-              src={company.logoUrl}
+              src={company.logoUrlLight}
               alt={company.name}
               className="h-7 w-auto"
             />
