@@ -84,6 +84,13 @@ model Company {
   accentColor   String @default("#f59e0b")
   heroSubheading String? // optional one-liner used on /<slug>
 
+  // Optional custom signature text — the one-liner that appears at the
+  // bottom of every email the company sends, prompting recipients to
+  // sign up as a referral partner. Supports {{payoutTotal}}, {{signupUrl}},
+  // {{companyName}} placeholders. If null, a sensible default is used —
+  // see lib/signature.ts.
+  emailSignature     String?
+
   // Programme config (per-company versions of the old env-var settings)
   services           String[] // ["Solar PV", "Battery Storage", ...]
   payoutAppointment  Decimal  @db.Decimal(10, 2) @default(50)

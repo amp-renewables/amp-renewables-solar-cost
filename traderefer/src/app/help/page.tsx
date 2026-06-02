@@ -110,6 +110,41 @@ export default function HelpPage() {
             </Link>
             .
           </FAQ>
+          <FAQ q="How do I quietly promote the programme in every email I send?">
+            <strong>Settings → Signature.</strong> We generate a one-line
+            email-signature snippet that includes your sign-up link and your
+            current payout total. Paste it into your email signature in
+            Gmail, Outlook, Apple Mail or iOS Mail (we provide
+            click-by-click install instructions for each), and from then on
+            every email you send — quotes, replies, replies to suppliers,
+            replies to anyone — quietly prompts the recipient to become a
+            referrer. It&apos;s the highest-leverage thing you can do once
+            you&apos;ve set up your programme. If you change your payout
+            amounts later, the figure in the signature updates automatically
+            so you never have stale numbers floating around.
+          </FAQ>
+          <FAQ q="Are there other low-effort ways to recruit partners?">
+            A few that work well:
+            <ul className="list-disc list-inside mt-2 space-y-1">
+              <li>
+                Add the sign-up link to your invoice template so every
+                completed customer sees it
+              </li>
+              <li>
+                Mention it on your job-completion / customer feedback emails
+              </li>
+              <li>
+                Print a QR code linking to your sign-up page on van decals
+                or business cards
+              </li>
+              <li>
+                Send a direct one-liner to past customers offering them the
+                deal — they already trust you
+              </li>
+            </ul>
+            The email signature is the easiest place to start because it
+            requires zero ongoing effort once installed.
+          </FAQ>
         </Section>
 
         <Section title="For partners (tradesmen & ambassadors)">
