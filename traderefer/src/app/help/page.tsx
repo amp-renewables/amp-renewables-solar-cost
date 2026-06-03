@@ -190,6 +190,123 @@ export default function HelpPage() {
           </FAQ>
         </Section>
 
+        <Section
+          title="How we keep your data safe"
+          id="data-safety"
+        >
+          <FAQ q="How are partner bank details stored?">
+            Sort codes and account numbers are <strong>encrypted with
+            AES-256-GCM</strong> the moment a partner saves them. What
+            lives in our database is base64-encoded ciphertext, not the
+            digits themselves. The decryption key sits in a separate
+            environment from the database — even if someone got a copy of
+            the database, they&apos;d see scrambled text without the key,
+            which they don&apos;t have access to.
+          </FAQ>
+          <FAQ q="Who can see partner bank details?">
+            Three groups, no-one else:
+            <ul className="list-disc list-inside mt-2 space-y-1">
+              <li>
+                The partner themselves, in their own account settings
+              </li>
+              <li>
+                Authorised admins at the company the partner is partnered
+                with — and only by explicitly clicking &quot;Reveal&quot;
+                on the masked display when they&apos;re processing a
+                payout
+              </li>
+              <li>
+                {platform.name} support, only on a legitimate written
+                request from the partner or company
+              </li>
+            </ul>
+            Every admin reveal is logged with the admin&apos;s ID, a
+            timestamp, and the reason. If you want the access history for
+            your account, email{" "}
+            <a
+              href={`mailto:${platform.supportEmail}`}
+              className="text-brand underline"
+            >
+              {platform.supportEmail}
+            </a>{" "}
+            and we&apos;ll send it over within one working day.
+          </FAQ>
+          <FAQ q="What about customer referral data?">
+            When a partner submits a referral they tick a box confirming
+            they have the customer&apos;s permission to share their
+            details. We record that confirmation with a timestamp so it
+            can be produced if a customer ever queries it. The receiving
+            business is the data controller for those customer details —
+            we process them on the business&apos;s behalf.
+          </FAQ>
+          <FAQ q="How are passwords protected?">
+            Passwords are{" "}
+            <strong>hashed with bcrypt</strong> before storage — we never
+            store plain passwords, and we can&apos;t see what your password
+            is even from inside the platform. Password reset tokens are
+            also hashed (SHA-256), expire after 1 hour, and are single-use.
+          </FAQ>
+          <FAQ q="What's encrypted in transit?">
+            Everything. All traffic between your browser and{" "}
+            {platform.name} uses TLS 1.2+, and our domain has HSTS enabled
+            — meaning modern browsers refuse to even attempt a non-HTTPS
+            connection. The same applies to our connections to Stripe,
+            Resend, Neon and every other service we talk to.
+          </FAQ>
+          <FAQ q="Who else can touch the data?">
+            Our subprocessors, all listed in our{" "}
+            <Link href="/privacy" className="text-brand underline">
+              privacy policy
+            </Link>
+            . In short:
+            <ul className="list-disc list-inside mt-2 space-y-1">
+              <li>
+                <strong>Vercel</strong> — hosts the app
+              </li>
+              <li>
+                <strong>Neon</strong> — runs the database (EU region,
+                encrypted at rest)
+              </li>
+              <li>
+                <strong>Stripe</strong> — handles company subscription
+                payments (Stripe is the data controller for card data, not
+                us — we never see card numbers)
+              </li>
+              <li>
+                <strong>Resend</strong> — sends transactional email
+              </li>
+              <li>
+                <strong>Cloudflare</strong> — handles DNS and edge
+                security
+              </li>
+            </ul>
+            Each processor acts only on our instruction. We don&apos;t
+            sell data to anyone, and there are no advertising or analytics
+            trackers on the platform.
+          </FAQ>
+          <FAQ q="What if I want my data deleted?">
+            Email{" "}
+            <a
+              href={`mailto:${platform.supportEmail}`}
+              className="text-brand underline"
+            >
+              {platform.supportEmail}
+            </a>{" "}
+            and we&apos;ll process the request within one calendar month
+            (UK GDPR&apos;s default). Some records have to be retained for
+            tax / accounting purposes (HMRC requires 6 years for business
+            records), but we&apos;ll anonymise what we can and delete what
+            we don&apos;t need to keep.
+          </FAQ>
+          <FAQ q="What happens if there's a breach?">
+            We&apos;ll notify affected users and the UK Information
+            Commissioner&apos;s Office within 72 hours of becoming aware,
+            in line with UK GDPR. We&apos;d also tell you what was
+            affected, what we&apos;re doing about it, and what (if
+            anything) you should do.
+          </FAQ>
+        </Section>
+
         <Section title="Account & billing">
           <FAQ q="I've forgotten my password.">
             On the{" "}
@@ -272,12 +389,14 @@ export default function HelpPage() {
 function Section({
   title,
   children,
+  id,
 }: {
   title: string;
   children: React.ReactNode;
+  id?: string;
 }) {
   return (
-    <section>
+    <section id={id} className={id ? "scroll-mt-8" : undefined}>
       <h2 className="text-xs uppercase tracking-wider text-slate-500 font-bold mb-4">
         {title}
       </h2>
