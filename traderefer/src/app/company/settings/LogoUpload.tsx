@@ -160,9 +160,17 @@ function LogoSlot({
               // instead of nesting a second <form>. The hidden 'variant'
               // input above is shared between both submit paths so the
               // server action knows which slot to clear.
+              //
+              // formNoValidate is critical: the file <input> above is
+              // marked required, which normally blocks form submit when
+              // empty. The clear action doesn't need a file at all, so
+              // we bypass HTML5 validation for this submit path only.
+              // Without this, 'Remove' silently fails until you also
+              // pick a new file — which defeats the point.
               <button
                 type="submit"
                 formAction={clearCompanyLogoAction}
+                formNoValidate
                 className="text-sm text-rose-700 underline px-3 py-2"
               >
                 Remove
