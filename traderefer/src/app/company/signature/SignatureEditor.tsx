@@ -122,3 +122,66 @@ export function CopyButton({
     </button>
   );
 }
+
+/**
+ * Copy a snippet to the clipboard in BOTH text/html and text/plain
+ * formats simultaneously. Rich-text editors (Gmail signature box,
+ * Outlook web) take the HTML version and render it as formatted text
+ * with clickable link — exactly what we want. Plain editors (iOS Mail,
+ * text fields) get the plain-text version.
+ *
+ * Falls back to plain-text-only copy on older browsers that don't
+ * support ClipboardItem (rare in 2026 — Chrome 76+, Firefox 116+,
+ * Safari 13.1+, Edge 79+).
+ */
+export function RichCopyButton({
+  label,
+  html,
+  plain,
+}: {
+  label: string;
+  html: string;
+  plain: string;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  async function copyRich() {
+    try {
+      if (
+        typeof ClipboardItem !== "undefined" &&
+        navigator.clipboard?.write
+      ) {
+        const item = new ClipboardItem({
+          "text/html": new Blob([html], { type: "text/html" }),
+          "text/plain": new Blob([plain], { type: "text/plain" }),
+        });
+        await navigator.clipboard.write([item]);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2500);
+        return;
+      }
+    } catch (err) {
+      // Drop through to plain-text fallback.
+      console.warn("[signature] rich copy failed, falling back:", err);
+    }
+    try {
+      await navigator.clipboard.writeText(plain);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      // Older browser without any clipboard API — user has to select
+      // and copy manually. The live preview block above the button
+      // is selectable so this still works, just less convenient.
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={copyRich}
+      className="btn-primary px-5 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap"
+    >
+      {copied ? "✓ Copied — paste into your signature now" : label}
+    </button>
+  );
+}
