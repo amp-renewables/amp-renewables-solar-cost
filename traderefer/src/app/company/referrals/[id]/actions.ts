@@ -1,5 +1,6 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -144,4 +145,85 @@ export async function updateReferralStatusAction(formData: FormData) {
   revalidatePath("/company/referrals");
   revalidatePath("/company/payouts");
   revalidatePath("/company");
+}
+
+/**
+ * Toggle a referral's archived state. Archiving is reversible — sets
+ * archivedAt to now() (hide from default lists) or back to null (restore).
+ * No effect on status, payouts, or the audit trail; this is purely an
+ * inbox-zero affordance for admins.
+ */
+export async function toggleArchiveReferralAction(formData: FormData) {
+  const admin = await requireCompanyAdmin();
+  await assertCompanyCanWriteById(admin.companyId);
+
+  const referralId = String(formData.get("referralId") || "");
+  if (!referralId) {
+    throw new Error("Missing referral id.");
+  }
+
+  const referral = await prisma.referral.findUnique({
+    where: { id: referralId },
+    select: { id: true, companyId: true, archivedAt: true },
+  });
+  if (!referral || referral.companyId !== admin.companyId) {
+    throw new Error("Not authorised to modify this referral.");
+  }
+
+  await prisma.referral.update({
+    where: { id: referralId },
+    data: { archivedAt: referral.archivedAt ? null : new Date() },
+  });
+
+  revalidatePath(`/company/referrals/${referralId}`);
+  revalidatePath("/company/referrals");
+  revalidatePath("/company");
+}
+
+/**
+ * Permanently delete a referral and everything cascaded from it (payouts,
+ * status events). BLOCKED if any payout is PAID — destroying a record of
+ * money that actually changed hands wrecks the accounting trail. Archive
+ * those instead.
+ *
+ * Redirects to the list afterwards; the detail page no longer exists.
+ */
+export async function deleteReferralAction(formData: FormData) {
+  const admin = await requireCompanyAdmin();
+  await assertCompanyCanWriteById(admin.companyId);
+
+  const referralId = String(formData.get("referralId") || "");
+  if (!referralId) {
+    throw new Error("Missing referral id.");
+  }
+
+  const referral = await prisma.referral.findUnique({
+    where: { id: referralId },
+    select: {
+      id: true,
+      companyId: true,
+      payouts: { select: { id: true, status: true } },
+    },
+  });
+  if (!referral || referral.companyId !== admin.companyId) {
+    throw new Error("Not authorised to modify this referral.");
+  }
+
+  const hasPaidPayouts = referral.payouts.some((p) => p.status === "PAID");
+  if (hasPaidPayouts) {
+    throw new Error(
+      "Can't delete a referral that has paid payouts — archive it instead. " +
+        "Deleting would destroy the accounting record of money already paid.",
+    );
+  }
+
+  // Payouts and ReferralStatusEvents cascade-delete via the schema's
+  // onDelete: Cascade. Single delete call handles everything.
+  await prisma.referral.delete({ where: { id: referralId } });
+
+  revalidatePath("/company/referrals");
+  revalidatePath("/company/payouts");
+  revalidatePath("/company");
+  // Caller (the form) is on the detail page, so send them back to the list.
+  redirect("/company/referrals?deleted=1");
 }

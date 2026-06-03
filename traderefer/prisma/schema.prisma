@@ -240,6 +240,13 @@ model Referral {
 
   status ReferralStatus @default(SUBMITTED)
 
+  // Soft-archive. Hidden from default /company/referrals view but kept in
+  // the DB (and still visible from /company/payouts if there's money
+  // owed). Restored by setting back to null. Orthogonal to the status
+  // enum — a REJECTED referral is one the customer walked away from; an
+  // ARCHIVED referral is one the admin no longer wants in their face.
+  archivedAt DateTime?
+
   appointmentBookedAt    DateTime?
   appointmentDate        DateTime?
   appointmentCompletedAt DateTime?
@@ -256,6 +263,7 @@ model Referral {
 
   @@index([companyId, status])
   @@index([companyId, createdAt])
+  @@index([companyId, archivedAt])
   @@index([partnerId])
 }
 
