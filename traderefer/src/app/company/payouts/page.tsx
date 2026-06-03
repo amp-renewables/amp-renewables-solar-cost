@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireCompanyAdmin } from "@/lib/auth";
 import { getCurrentCompany, formatCompanyMoney } from "@/lib/company";
 import { markPayoutPaidAction } from "./actions";
+import { MaskedBankCell } from "./MaskedBankCell";
 
 export default async function CompanyPayoutsPage({
   searchParams,
@@ -27,13 +28,17 @@ export default async function CompanyPayoutsPage({
           include: {
             partner: {
               select: {
+                id: true,
                 businessName: true,
                 fullName: true,
                 email: true,
                 phone: true,
                 bankAccountName: true,
-                bankSortCode: true,
-                bankAccountNumber: true,
+                // Encrypted fields stay on the server. We send only the
+                // last-N digits to the client for masked display; the
+                // ciphertext is decrypted server-side via a reveal action.
+                bankSortCodeLast2: true,
+                bankAccountNumberLast4: true,
               },
             },
           },
@@ -125,7 +130,7 @@ export default async function CompanyPayoutsPage({
             {payouts.map((p) => {
               const partner = p.referral.partner;
               const hasBank = Boolean(
-                partner.bankSortCode && partner.bankAccountNumber,
+                partner.bankSortCodeLast2 && partner.bankAccountNumberLast4,
               );
               return (
               <tr key={p.id}>
@@ -143,12 +148,12 @@ export default async function CompanyPayoutsPage({
                 </td>
                 <td className="px-4 py-3 text-xs">
                   {hasBank ? (
-                    <div className="text-slate-700 font-mono">
-                      <div>{partner.bankAccountName}</div>
-                      <div className="text-slate-500">
-                        {partner.bankSortCode} · {partner.bankAccountNumber}
-                      </div>
-                    </div>
+                    <MaskedBankCell
+                      partnerId={partner.id}
+                      accountName={partner.bankAccountName}
+                      sortCodeLast2={partner.bankSortCodeLast2}
+                      accountNumberLast4={partner.bankAccountNumberLast4}
+                    />
                   ) : (
                     <span className="text-rose-600">Not provided</span>
                   )}

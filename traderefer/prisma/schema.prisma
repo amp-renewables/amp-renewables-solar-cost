@@ -134,21 +134,49 @@ model User {
 
   // Bank details for partner payouts (PARTNER only). Captured in dashboard
   // settings rather than at signup so it doesn't slow the signup flow.
-  // Stored in plain text — fine for sort code / account number under UK
-  // data protection rules; do not add full debit card numbers here.
-  bankAccountName   String?
-  bankSortCode      String?
-  bankAccountNumber String?
+  //
+  // The sort code and account number are encrypted at the application layer
+  // (AES-256-GCM with BANK_ENCRYPTION_KEY, see src/lib/crypto.ts) — what's
+  // stored here is a base64-encoded envelope, not the raw number. The Last2
+  // / Last4 columns store the trailing digits in plaintext so masked admin
+  // views can render "**-**-67 · **** 4321" without paying a decrypt per
+  // row. Last digits alone don't identify an account.
+  bankAccountName        String?
+  bankSortCode           String?  // encrypted envelope
+  bankAccountNumber      String?  // encrypted envelope
+  bankSortCodeLast2      String?  // plaintext, for masked display
+  bankAccountNumberLast4 String?  // plaintext, for masked display
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  referrals      Referral[]
-  sessions       Session[]
-  resetTokens    PasswordResetToken[]
+  referrals          Referral[]
+  sessions           Session[]
+  resetTokens        PasswordResetToken[]
+  bankDetailsViewed  BankDetailsAccess[] @relation("PartnerBankAccess")
+  bankDetailsViews   BankDetailsAccess[] @relation("AdminBankAccess")
 
   @@index([companyId])
   @@index([role])
+}
+
+// Append-only audit log: every time a company admin reveals a partner's
+// full bank details from the masked UI, we record it here. Lets us answer
+// "who has seen my bank details?" for GDPR subject-access requests and
+// detect insider abuse. Never deleted — partner-driven account anonymisation
+// nulls fields rather than removing rows.
+model BankDetailsAccess {
+  id              String   @id @default(cuid())
+  partnerUserId   String
+  partner         User     @relation("PartnerBankAccess", fields: [partnerUserId], references: [id], onDelete: Cascade)
+  viewedByUserId  String
+  viewedBy        User     @relation("AdminBankAccess", fields: [viewedByUserId], references: [id], onDelete: Cascade)
+  viewedAt        DateTime @default(now())
+  // Free-form context for diagnostics, e.g. "payouts page", "partner detail".
+  context         String?
+
+  @@index([partnerUserId, viewedAt])
+  @@index([viewedByUserId, viewedAt])
 }
 
 model Session {

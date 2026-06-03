@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requirePartner } from "@/lib/auth";
 import { assertCompanyCanWriteById } from "@/lib/stripe";
+import { encryptField } from "@/lib/crypto";
 
 const ProfileSchema = z.object({
   fullName: z.string().trim().min(2, "Please enter your name"),
@@ -83,12 +84,25 @@ export async function saveBankAction(
     }
     return { errors };
   }
+  // Normalise sort code to digits-with-dashes ('12-34-56') and the account
+  // number to bare digits before encryption — keeps stored format consistent
+  // regardless of how the partner typed it.
+  const sortCodeNormalised = parsed.data.bankSortCode.replace(/[^0-9-]/g, "");
+  const accountNumberNormalised = parsed.data.bankAccountNumber;
+
   await prisma.user.update({
     where: { id: user.id },
     data: {
       bankAccountName: parsed.data.bankAccountName,
-      bankSortCode: parsed.data.bankSortCode.replace(/[^0-9-]/g, ""),
-      bankAccountNumber: parsed.data.bankAccountNumber,
+      // The two sensitive fields go through AES-256-GCM. What we store is a
+      // base64 envelope of IV || tag || ciphertext, not the raw digits.
+      bankSortCode: encryptField(sortCodeNormalised),
+      bankAccountNumber: encryptField(accountNumberNormalised),
+      // Plaintext trailing digits for masked admin views. Last 2 of the
+      // sort code (the '56' in '12-34-56') and last 4 of the account
+      // number — neither identifies the account on its own.
+      bankSortCodeLast2: sortCodeNormalised.slice(-2),
+      bankAccountNumberLast4: accountNumberNormalised.slice(-4),
     },
   });
   revalidatePath("/dashboard/settings");

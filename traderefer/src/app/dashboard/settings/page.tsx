@@ -1,6 +1,7 @@
 import { requirePartner } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { ChangePasswordCard } from "@/components/ChangePasswordCard";
+import { tryDecryptField } from "@/lib/crypto";
 import { ProfileForm, BankForm } from "./Forms";
 
 export default async function PartnerSettingsPage() {
@@ -17,6 +18,11 @@ export default async function PartnerSettingsPage() {
     },
   });
   if (!user) return null;
+
+  // Partners can always see their own bank details in the clear (it's
+  // their own data). Decrypt before passing to the form.
+  const sortCodeClear = tryDecryptField(user.bankSortCode) ?? "";
+  const accountNumberClear = tryDecryptField(user.bankAccountNumber) ?? "";
 
   return (
     <div className="space-y-8 max-w-2xl">
@@ -48,8 +54,8 @@ export default async function PartnerSettingsPage() {
         </p>
         <BankForm
           bankAccountName={user.bankAccountName ?? ""}
-          bankSortCode={user.bankSortCode ?? ""}
-          bankAccountNumber={user.bankAccountNumber ?? ""}
+          bankSortCode={sortCodeClear}
+          bankAccountNumber={accountNumberClear}
         />
       </section>
 
