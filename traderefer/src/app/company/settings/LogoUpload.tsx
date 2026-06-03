@@ -46,7 +46,7 @@ export function LogoUpload({
       <LogoSlot
         variant="light"
         label="Light logo (for dark backgrounds)"
-        description="Shown on dark surfaces — your partner sign-up panel and admin nav. Upload a white / inverted version of your logo."
+        description="Shown on dark surfaces — your partner sign-up panel and admin nav. Upload a white / inverted version of your logo on a TRANSPARENT background — not on its own dark / black backdrop, or you'll see that backdrop sitting on top of your brand colour. The preview tile to the left renders against your brand colour so you can check it looks right before saving."
         previewBg="bg-brand"
         previewBorder="border-slate-300"
         currentUrl={currentLogoUrlLight}
