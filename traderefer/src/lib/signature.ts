@@ -16,7 +16,7 @@ import { payoutsForCompany, formatCompanyMoney } from "./company";
 
 /** Default template if the company hasn't customised it. */
 export const DEFAULT_SIGNATURE_TEMPLATE =
-  "Got someone thinking about a {{services}}? Refer them to " +
+  "Know someone thinking about a {{services}}? Refer them to " +
   "{{companyName}} and earn up to {{payoutTotal}} — sign up at " +
   "{{signupUrl}}";
 
