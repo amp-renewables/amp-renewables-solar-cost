@@ -168,6 +168,36 @@ export default async function CompanyOverviewPage() {
         />
       </div>
 
+      {/* Internal-referral CTA. Hidden for comped accounts (they're
+          already free; nothing to discount). Doesn't repeat the maths
+          breakdown — /company/network is one click away for that. */}
+      {!company.isComped && (
+        <section className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl p-6 sm:p-7 flex items-start gap-6 flex-wrap">
+          <div className="flex-1 min-w-[260px]">
+            <p className="text-xs uppercase tracking-wider text-amber-400 font-bold mb-2">
+              Refer & save
+            </p>
+            <h2 className="text-xl sm:text-2xl font-bold mb-2 leading-snug">
+              Know another service business that should be on{" "}
+              {platform.name}?
+            </h2>
+            <p className="text-slate-300 text-sm leading-relaxed">
+              Refer them with your link below. The moment they make their
+              first payment, your {platform.name} subscription drops by
+              25%. Refer 4 paying companies and it&apos;s{" "}
+              <strong className="text-amber-400">free forever</strong> —
+              for as long as they stay subscribed.
+            </p>
+          </div>
+          <Link
+            href="/company/network"
+            className="bg-amber-500 text-slate-900 font-semibold px-5 py-2.5 rounded-lg whitespace-nowrap hover:bg-amber-400"
+          >
+            Get your link →
+          </Link>
+        </section>
+      )}
+
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold text-brand">Recent referrals</h2>

@@ -527,6 +527,172 @@ export async function sendTeamInviteEmail(
   }
 }
 
+/**
+ * Email a referrer when their referred company makes its first payment
+ * (so the discount has just activated). Sent to the company's
+ * contactEmail. Short, transactional — celebrates the win without
+ * marketing fluff.
+ */
+export async function sendReferralQualifiedEmail(
+  referrer: { contactEmail: string; name: string },
+  referredCompanyName: string,
+  newPercentOff: number,
+  monthlyPrice: number,
+  currencySymbol: string,
+): Promise<void> {
+  if (!resend) {
+    console.warn(
+      `[email] no RESEND_API_KEY — referral-qualified email for ${referrer.contactEmail} skipped`,
+    );
+    return;
+  }
+
+  const newMonthly = Math.max(
+    0,
+    monthlyPrice - (monthlyPrice * newPercentOff) / 100,
+  );
+  const subject =
+    newPercentOff === 100
+      ? `🎉 ${referredCompanyName} just paid — your ${platform.name} subscription is free`
+      : `${referredCompanyName} just paid — you're now ${newPercentOff}% off`;
+
+  const html = `
+    <div style="font-family:system-ui,sans-serif;color:#222;max-width:560px;">
+      <h2 style="color:${platform.colors.primary};margin-bottom:8px;">
+        ${
+          newPercentOff === 100
+            ? "Your subscription is now free"
+            : `Your discount just bumped to ${newPercentOff}%`
+        }
+      </h2>
+      <p style="color:#444;line-height:1.5;">
+        Good news ${esc(referrer.name.split(" ")[0] || "")} —
+        <strong>${esc(referredCompanyName)}</strong> just made their first
+        payment on ${esc(platform.name)}. That activates your referral
+        discount.
+      </p>
+      <table style="border-collapse:collapse;font-size:14px;margin:20px 0;">
+        <tr><td style="padding:4px 16px 4px 0;color:#888;">Your new rate</td><td style="padding:4px 0;font-weight:600;">${esc(currencySymbol)}${newMonthly.toFixed(2)}/month</td></tr>
+        <tr><td style="padding:4px 16px 4px 0;color:#888;">Discount applied</td><td style="padding:4px 0;">${newPercentOff}% off ${esc(currencySymbol)}${monthlyPrice}</td></tr>
+        <tr><td style="padding:4px 16px 4px 0;color:#888;">When it lands</td><td style="padding:4px 0;">From your next invoice</td></tr>
+      </table>
+      <p style="color:#666;font-size:13px;">
+        The discount stays as long as ${esc(referredCompanyName)} keeps
+        their subscription. If they cancel you'll lose that 25% slice —
+        we'll let you know if that happens.
+      </p>
+      ${
+        newPercentOff < 100
+          ? `<p style="color:#666;font-size:13px;">Refer ${(100 - newPercentOff) / 25} more paying companies and your subscription is free forever.</p>`
+          : ""
+      }
+      <p style="margin-top:24px;">
+        <a href="${APP_URL}/company/network" style="background:${platform.colors.primary};color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:500;display:inline-block;">View your network</a>
+      </p>
+    </div>
+  `;
+
+  const text = [
+    newPercentOff === 100
+      ? `Your ${platform.name} subscription is now free.`
+      : `Your discount just bumped to ${newPercentOff}%.`,
+    ``,
+    `${referredCompanyName} just made their first payment on ${platform.name}.`,
+    ``,
+    `Your new rate: ${currencySymbol}${newMonthly.toFixed(2)}/month`,
+    `Discount applied: ${newPercentOff}% off ${currencySymbol}${monthlyPrice}`,
+    `When it lands: from your next invoice`,
+    ``,
+    `View your network: ${APP_URL}/company/network`,
+  ].join("\n");
+
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: referrer.contactEmail,
+      subject,
+      html,
+      text,
+    });
+  } catch (err) {
+    console.error("[email] referral-qualified send failed:", err);
+  }
+}
+
+/**
+ * Email a referrer when one of their referred companies churns (so
+ * their discount has just dropped). Honest, not dramatic. We tell them
+ * the new rate, not how much they "lost" — different framing.
+ */
+export async function sendReferralChurnedEmail(
+  referrer: { contactEmail: string; name: string },
+  churnedCompanyName: string,
+  newPercentOff: number,
+  monthlyPrice: number,
+  currencySymbol: string,
+): Promise<void> {
+  if (!resend) {
+    console.warn(
+      `[email] no RESEND_API_KEY — referral-churned email for ${referrer.contactEmail} skipped`,
+    );
+    return;
+  }
+
+  const newMonthly = Math.max(
+    0,
+    monthlyPrice - (monthlyPrice * newPercentOff) / 100,
+  );
+  const subject = `${churnedCompanyName} cancelled — your ${platform.name} discount is now ${newPercentOff}%`;
+
+  const html = `
+    <div style="font-family:system-ui,sans-serif;color:#222;max-width:560px;">
+      <h2 style="color:${platform.colors.primary};margin-bottom:8px;">
+        ${esc(churnedCompanyName)} has cancelled their ${esc(platform.name)} subscription
+      </h2>
+      <p style="color:#444;line-height:1.5;">
+        That removes one of your referral discount slices — your
+        subscription will be ${esc(currencySymbol)}${newMonthly.toFixed(2)}/month from
+        the next invoice (was ${esc(currencySymbol)}${monthlyPrice} at the
+        full rate).
+      </p>
+      <p style="color:#666;font-size:13px;">
+        ${
+          newPercentOff === 0
+            ? `Refer another paying company and you're back to 25% off.`
+            : `You're still at ${newPercentOff}% off thanks to your other active referrals.`
+        }
+      </p>
+      <p style="margin-top:24px;">
+        <a href="${APP_URL}/company/network" style="background:${platform.colors.primary};color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:500;display:inline-block;">View your network</a>
+      </p>
+    </div>
+  `;
+
+  const text = [
+    `${churnedCompanyName} has cancelled their ${platform.name} subscription.`,
+    ``,
+    `Your subscription will be ${currencySymbol}${newMonthly.toFixed(2)}/month from the next invoice (was ${currencySymbol}${monthlyPrice} at the full rate).`,
+    ``,
+    newPercentOff === 0
+      ? `Refer another paying company and you're back to 25% off.`
+      : `You're still at ${newPercentOff}% off thanks to your other active referrals.`,
+    ``,
+    `View your network: ${APP_URL}/company/network`,
+  ].join("\n");
+
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: referrer.contactEmail,
+      subject,
+      html,
+      text,
+    });
+  } catch (err) {
+    console.error("[email] referral-churned send failed:", err);
+  }
+}
+
 function esc(s: string): string {
   return s
     .replace(/&/g, "&amp;")

@@ -18,6 +18,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/lib/db";
 import { getStripe } from "@/lib/stripe";
+import { recalcReferralDiscount } from "@/lib/referral";
 import type { CompanyStatus } from "@prisma/client";
 
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
@@ -146,6 +147,14 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
   const company = await companyFromSubscription(subscription);
   if (!company) return;
 
+  // Read the upstream referrer (if any) + this company's name BEFORE
+  // marking CANCELLED — we need both for the churn email to the
+  // referrer.
+  const cancelled = await prisma.company.findUnique({
+    where: { id: company.id },
+    select: { referredByCompanyId: true, name: true },
+  });
+
   await prisma.company.update({
     where: { id: company.id },
     data: {
@@ -155,6 +164,19 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
     },
   });
   console.log(`[stripe-webhook] company ${company.id} → CANCELLED`);
+
+  // Notify the referrer's discount engine — they lose a tier. Skip if
+  // there's no referrer at all.
+  if (cancelled?.referredByCompanyId) {
+    try {
+      await recalcReferralDiscount(cancelled.referredByCompanyId, {
+        kind: "churned",
+        referredCompanyName: cancelled.name,
+      });
+    } catch (err) {
+      console.error("[stripe-webhook] referral recalc on churn failed:", err);
+    }
+  }
 }
 
 async function handleInvoiceFailed(invoice: Stripe.Invoice) {
@@ -186,9 +208,45 @@ async function handleInvoiceSucceeded(invoice: Stripe.Invoice) {
 
   const company = await prisma.company.findFirst({
     where: { stripeSubscriptionId: subscriptionId },
-    select: { id: true, status: true },
+    select: {
+      id: true,
+      name: true,
+      status: true,
+      referredByCompanyId: true,
+      referralQualifiedAt: true,
+    },
   });
   if (!company) return;
+
+  // QUALIFY FOR REFERRAL DISCOUNT (first paid invoice only).
+  //
+  // If this is this company's first successful payment, mark them as
+  // qualified and recalc the referrer's discount tier. We gate on
+  // referralQualifiedAt being null so subsequent monthly invoices don't
+  // trigger redundant recalcs.
+  if (!company.referralQualifiedAt) {
+    await prisma.company.update({
+      where: { id: company.id },
+      data: { referralQualifiedAt: new Date() },
+    });
+    console.log(
+      `[stripe-webhook] company ${company.id} → referralQualifiedAt set (first paid invoice)`,
+    );
+
+    if (company.referredByCompanyId) {
+      try {
+        await recalcReferralDiscount(company.referredByCompanyId, {
+          kind: "qualified",
+          referredCompanyName: company.name,
+        });
+      } catch (err) {
+        console.error(
+          "[stripe-webhook] referral recalc on qualification failed:",
+          err,
+        );
+      }
+    }
+  }
 
   // Only flip status if recovering from PAST_DUE — otherwise let the
   // subscription.updated handler manage normal transitions.

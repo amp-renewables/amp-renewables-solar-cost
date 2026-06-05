@@ -2,6 +2,8 @@ import { requireCompanyAdmin } from "@/lib/auth";
 import { getCurrentCompany } from "@/lib/company";
 import { platform, formatPrice } from "@/lib/platform";
 import { billingDisplay, stripeConfigured } from "@/lib/stripe";
+import { getReferralStanding } from "@/lib/referral";
+import Link from "next/link";
 import {
   openBillingPortalAction,
   startCheckoutAction,
@@ -35,6 +37,12 @@ export default async function CompanyBillingPage({
 
   const display = billingDisplay(company);
   const configured = stripeConfigured();
+  const standing = await getReferralStanding(company.id);
+  const monthlyPrice = platform.pricing.monthly;
+  const discountedPrice = Math.max(
+    0,
+    monthlyPrice - (monthlyPrice * standing.percentOff) / 100,
+  );
 
   return (
     <div className="space-y-8 max-w-3xl">
@@ -93,6 +101,60 @@ export default async function CompanyBillingPage({
           )}
         </div>
       </section>
+
+      {/* ─── Internal referral discount status ───────────────────────── */}
+      {!company.isComped && (
+        <section className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-xl p-6">
+          <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+            <h2 className="text-lg font-bold">
+              {standing.percentOff > 0
+                ? `Your referral discount: ${standing.percentOff}% off`
+                : "Refer & save"}
+            </h2>
+            <Link
+              href="/company/network"
+              className="text-xs text-amber-400 hover:text-amber-300 underline whitespace-nowrap"
+            >
+              View your network →
+            </Link>
+          </div>
+
+          {standing.percentOff > 0 ? (
+            <p className="text-sm text-slate-300">
+              You have <strong className="text-white">{standing.qualifyingCount}</strong>{" "}
+              paying referral{standing.qualifyingCount === 1 ? "" : "s"} —
+              your next invoice will be{" "}
+              <strong className="text-amber-400">
+                {formatPrice(discountedPrice)}/month
+              </strong>{" "}
+              instead of {formatPrice(monthlyPrice)}.
+              {standing.tier < 4 && (
+                <>
+                  {" "}
+                  Refer {4 - standing.tier} more and your subscription is{" "}
+                  <strong className="text-amber-400">free</strong>.
+                </>
+              )}
+            </p>
+          ) : (
+            <p className="text-sm text-slate-300">
+              Every {platform.name} company you refer who pays for their
+              first month gives you{" "}
+              <strong className="text-white">25% off</strong> your
+              subscription. Refer 4 and it&apos;s{" "}
+              <strong className="text-amber-400">free</strong>. They have to
+              stay subscribed for you to keep the discount.
+            </p>
+          )}
+
+          <p className="text-xs text-slate-400 mt-4 pt-3 border-t border-white/10">
+            Share your link:{" "}
+            <span className="font-mono text-amber-300 break-all">
+              {platform.url}/signup?ref={company.slug}
+            </span>
+          </p>
+        </section>
+      )}
 
       <section className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
         <h2 className="font-semibold text-brand">What you're paying for</h2>

@@ -17,6 +17,11 @@ const SignupSchema = z.object({
   email: z.string().trim().email("Please enter a valid email"),
   phone: z.string().trim().min(7, "Please enter a valid phone number"),
   password: z.string().min(8, "Password must be at least 8 characters"),
+  // Optional referrer slug from ?ref=<slug>. Hidden form input. We look
+  // up the matching Company server-side; if it doesn't exist or is the
+  // same company (self-referral is meaningless), we silently drop the
+  // link. Bad input here never breaks signup.
+  referrerSlug: z.string().trim().optional(),
 });
 
 export type CompanySignupState = {
@@ -34,6 +39,7 @@ export async function companySignupAction(
     email: formData.get("email"),
     phone: formData.get("phone"),
     password: formData.get("password"),
+    referrerSlug: formData.get("referrerSlug") || undefined,
   });
 
   if (!parsed.success) {
@@ -62,6 +68,21 @@ export async function companySignupAction(
 
   const hashed = await hashPassword(data.password);
 
+  // Resolve the optional referrer. Looked up server-side so the form
+  // value can't link to a company that doesn't exist. Self-referral is
+  // blocked because the new company doesn't have an id yet (so its
+  // slug can't match) — but kept as a defensive comparison in case the
+  // signup flow ever changes to two-step.
+  const normalisedReferrerSlug = data.referrerSlug?.toLowerCase().trim();
+  const referrer = normalisedReferrerSlug
+    ? await prisma.company.findUnique({
+        where: { slug: normalisedReferrerSlug },
+        select: { id: true, slug: true },
+      })
+    : null;
+  const referredByCompanyId =
+    referrer && referrer.slug !== slug ? referrer.id : null;
+
   const { user, company } = await prisma.$transaction(async (tx) => {
     const company = await tx.company.create({
       data: {
@@ -71,6 +92,7 @@ export async function companySignupAction(
         contactPhone: data.phone,
         status: "TRIAL",
         trialEndsAt,
+        referredByCompanyId,
         // Sensible defaults — the COMPANY_ADMIN can refine on their settings page.
         services: ["Solar PV", "Battery Storage", "EV Charger", "Heat Pump"],
         payoutAppointment: 50,

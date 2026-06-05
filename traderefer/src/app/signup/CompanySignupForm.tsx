@@ -5,7 +5,11 @@ import { companySignupAction, type CompanySignupState } from "./actions";
 
 const initial: CompanySignupState = {};
 
-export function CompanySignupForm() {
+export function CompanySignupForm({
+  referrerSlug,
+}: {
+  referrerSlug: string | null;
+}) {
   const [state, formAction, pending] = useActionState(
     companySignupAction,
     initial,
@@ -17,6 +21,14 @@ export function CompanySignupForm() {
         <div className="bg-rose-50 border border-rose-200 text-rose-800 text-sm rounded-lg px-3 py-2">
           {state.formError}
         </div>
+      )}
+
+      {/* Hidden field — carries the validated referrer slug into the
+          server action. Set server-side from a real Company lookup, so
+          even tampering with this input only links to companies that
+          actually exist. */}
+      {referrerSlug && (
+        <input type="hidden" name="referrerSlug" value={referrerSlug} />
       )}
 
       <Field

@@ -107,6 +107,22 @@ model Company {
   stripeCustomerId     String? @unique
   stripeSubscriptionId String? @unique
 
+  // ─── Internal referral programme ──────────────────────────────
+  // Who referred this company to TradeRefer (set at signup via
+  // ?ref=<slug>). Null if they came in cold. Self-relation; deleting
+  // the referrer doesn't cascade — we just null out this link so the
+  // referred company stays intact with no upstream credit.
+  referredByCompanyId String?
+  referredBy          Company?  @relation("CompanyReferrals", fields: [referredByCompanyId], references: [id], onDelete: SetNull)
+  referredCompanies   Company[] @relation("CompanyReferrals")
+
+  // Timestamp of the FIRST successful invoice payment. Stays null
+  // through TRIAL, set the moment Stripe fires invoice.payment_succeeded
+  // for the first time. This is the gate that activates the referrer's
+  // 25% discount slice — we don't credit referrers for trial-only
+  // signups, only for ones that converted to paid.
+  referralQualifiedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -115,6 +131,7 @@ model Company {
   templates MessageTemplate[]
 
   @@index([status])
+  @@index([referredByCompanyId])
 }
 
 model User {
