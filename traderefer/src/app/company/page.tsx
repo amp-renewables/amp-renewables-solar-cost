@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireCompanyAdmin } from "@/lib/auth";
 import { getCurrentCompany, formatCompanyMoney } from "@/lib/company";
 import { platform, formatPrice } from "@/lib/platform";
+import { getReferralStanding } from "@/lib/referral";
 import { StatusBadge } from "@/components/StatusBadge";
 
 export default async function CompanyOverviewPage() {
@@ -58,6 +59,11 @@ export default async function CompanyOverviewPage() {
   ]);
 
   const partnerSignupUrl = `${platform.url}/${company.slug}/signup`;
+  const referralStanding = await getReferralStanding(company.id);
+  const monthlyPrice = platform.pricing.monthly;
+  const referralMonthlySaving =
+    (monthlyPrice * referralStanding.percentOff) / 100;
+  const referralLink = `${platform.url}/signup?ref=${company.slug}`;
   const trialDaysLeft =
     company.status === "TRIAL" && company.trialEndsAt
       ? Math.max(
@@ -168,33 +174,70 @@ export default async function CompanyOverviewPage() {
         />
       </div>
 
-      {/* Internal-referral CTA. Hidden for comped accounts (they're
-          already free; nothing to discount). Doesn't repeat the maths
-          breakdown — /company/network is one click away for that. */}
+      {/* Internal-referral indicator. Hidden for comped accounts
+          (they're already free; nothing to discount). Always-visible
+          live status panel — count, discount %, monthly saving — so
+          admins can see their network at a glance from the overview. */}
       {!company.isComped && (
-        <section className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl p-6 sm:p-7 flex items-start gap-6 flex-wrap">
-          <div className="flex-1 min-w-[260px]">
-            <p className="text-xs uppercase tracking-wider text-amber-400 font-bold mb-2">
-              Refer & save
-            </p>
-            <h2 className="text-xl sm:text-2xl font-bold mb-2 leading-snug">
-              Know another service business that should be on{" "}
-              {platform.name}?
-            </h2>
-            <p className="text-slate-300 text-sm leading-relaxed">
-              Refer them with your link below. The moment they make their
-              first payment, your {platform.name} subscription drops by
-              25%. Refer 4 paying companies and it&apos;s{" "}
-              <strong className="text-amber-400">free forever</strong> —
-              for as long as they stay subscribed.
-            </p>
+        <section className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl p-6 sm:p-7">
+          <div className="flex items-center justify-between gap-3 flex-wrap mb-5">
+            <div>
+              <p className="text-xs uppercase tracking-wider text-amber-400 font-bold mb-1">
+                Refer & save
+              </p>
+              <h2 className="text-xl font-bold leading-snug">
+                {referralStanding.percentOff === 0
+                  ? "Your network — nobody yet"
+                  : referralStanding.percentOff === 100
+                    ? "Your subscription is free thanks to referrals"
+                    : `Your network is saving you ${formatPrice(referralMonthlySaving)}/month`}
+              </h2>
+            </div>
+            <Link
+              href="/company/network"
+              className="bg-amber-500 text-slate-900 font-semibold px-4 py-2 rounded-lg whitespace-nowrap hover:bg-amber-400 text-sm"
+            >
+              View network →
+            </Link>
           </div>
-          <Link
-            href="/company/network"
-            className="bg-amber-500 text-slate-900 font-semibold px-5 py-2.5 rounded-lg whitespace-nowrap hover:bg-amber-400"
-          >
-            Get your link →
-          </Link>
+
+          {/* Three at-a-glance numbers. Render zeros honestly when
+              nothing's happening yet — drives the user to take action
+              rather than hiding the prompt. */}
+          <div className="grid grid-cols-3 gap-4 mb-5">
+            <ReferralStat
+              label="Active referrals"
+              value={String(referralStanding.qualifyingCount)}
+              hint={
+                referralStanding.tier < 4
+                  ? `${4 - referralStanding.tier} more for free`
+                  : "Capped — refer more to insure"
+              }
+            />
+            <ReferralStat
+              label="Discount"
+              value={`${referralStanding.percentOff}%`}
+              hint="25% per active paying referral"
+              highlight={referralStanding.percentOff > 0}
+            />
+            <ReferralStat
+              label="Saving"
+              value={
+                referralStanding.percentOff > 0
+                  ? `${formatPrice(referralMonthlySaving)}/mo`
+                  : "—"
+              }
+              hint={`off ${formatPrice(monthlyPrice)}`}
+              highlight={referralStanding.percentOff > 0}
+            />
+          </div>
+
+          <p className="text-xs text-slate-400 pt-4 border-t border-white/10">
+            Share your link:{" "}
+            <span className="font-mono text-amber-300 break-all">
+              {referralLink}
+            </span>
+          </p>
         </section>
       )}
 
@@ -267,6 +310,37 @@ function Stat({ label, value }: { label: string; value: string }) {
         {label}
       </div>
       <div className="text-2xl font-bold text-brand mt-1">{value}</div>
+    </div>
+  );
+}
+
+/** Inline stat tile used inside the slate-bg referral card. Different
+ *  palette + sizing from the page-level Stat so they don't visually
+ *  clash with the white cards above. */
+function ReferralStat({
+  label,
+  value,
+  hint,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
+        {label}
+      </div>
+      <div
+        className={`text-2xl font-extrabold mt-0.5 ${
+          highlight ? "text-amber-400" : "text-white"
+        }`}
+      >
+        {value}
+      </div>
+      <div className="text-xs text-slate-500 mt-0.5">{hint}</div>
     </div>
   );
 }

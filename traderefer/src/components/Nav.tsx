@@ -83,6 +83,14 @@ export function Nav({
           <span className="hidden md:inline">
             {user.businessName || user.fullName || user.email}
           </span>
+          <Link
+            href="/help"
+            target="_blank"
+            rel="noopener"
+            className="underline hover:text-white"
+          >
+            Help
+          </Link>
           <form action="/logout" method="POST">
             <button
               type="submit"
@@ -104,14 +112,24 @@ export function Nav({
               {l.label}
             </Link>
           ))}
-          <form action="/logout" method="POST" className="sm:hidden ml-auto">
-            <button
-              type="submit"
-              className="px-3 py-2 text-sm whitespace-nowrap hover:bg-white/10 rounded-t-lg cursor-pointer"
+          <div className="sm:hidden ml-auto flex items-center">
+            <Link
+              href="/help"
+              target="_blank"
+              rel="noopener"
+              className="px-3 py-2 text-sm whitespace-nowrap hover:bg-white/10 rounded-t-lg"
             >
-              Log out
-            </button>
-          </form>
+              Help
+            </Link>
+            <form action="/logout" method="POST">
+              <button
+                type="submit"
+                className="px-3 py-2 text-sm whitespace-nowrap hover:bg-white/10 rounded-t-lg cursor-pointer"
+              >
+                Log out
+              </button>
+            </form>
+          </div>
         </div>
       </nav>
     </header>
