@@ -153,7 +153,7 @@ export default async function CompanyOverviewPage() {
         </p>
       </div>
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Stat label="Total referrals" value={String(totalReferrals)} />
         <Stat label="Active" value={String(activeReferrals)} />
         <Stat label="Jobs sold" value={String(jobsSold)} />
@@ -172,6 +172,28 @@ export default async function CompanyOverviewPage() {
             Number(paidPayouts._sum.amount ?? 0),
           )}
         />
+        {/* Network referrals — companies the admin has referred to
+            TradeRefer that are paying. Hidden for comped accounts since
+            they don't earn discounts. Click-through to /company/network
+            for the detail. */}
+        {!company.isComped && (
+          <Link
+            href="/company/network"
+            className="bg-white border border-slate-200 rounded-xl p-4 hover:border-brand transition-colors"
+          >
+            <div className="text-xs uppercase tracking-wider text-slate-500">
+              Network referrals
+            </div>
+            <div className="text-2xl font-bold text-brand mt-1">
+              {referralStanding.qualifyingCount}
+            </div>
+            <div className="text-[11px] text-slate-500 mt-1">
+              {referralStanding.percentOff > 0
+                ? `${referralStanding.percentOff}% off your subscription`
+                : "Refer one to start saving"}
+            </div>
+          </Link>
+        )}
       </div>
 
       {/* Internal-referral indicator. Hidden for comped accounts
