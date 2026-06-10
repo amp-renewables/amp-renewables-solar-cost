@@ -14,6 +14,9 @@ const SignupSchema = z.object({
   email: z.string().trim().email("Please enter a valid email"),
   phone: z.string().trim().min(7, "Please enter a valid phone number"),
   password: z.string().min(8, "Password must be at least 8 characters"),
+  // Optional bulk-invite attribution token. Bad/stale tokens are
+  // silently ignored — attribution must never block a signup.
+  inviteToken: z.string().trim().optional(),
 });
 
 export type PartnerSignupState = {
@@ -32,6 +35,7 @@ export async function partnerSignupAction(
     email: formData.get("email"),
     phone: formData.get("phone"),
     password: formData.get("password"),
+    inviteToken: formData.get("inviteToken") || undefined,
   });
 
   if (!parsed.success) {
@@ -69,6 +73,29 @@ export async function partnerSignupAction(
       companyId: company.id,
     },
   });
+
+  // Attribute the signup to a bulk invite, if one brought them here.
+  // Token must belong to the SAME company (a token from company A can't
+  // claim credit for a signup at company B). Failures are swallowed —
+  // attribution is nice-to-have, the account is already created.
+  if (data.inviteToken) {
+    try {
+      await prisma.partnerInvite.updateMany({
+        where: {
+          token: data.inviteToken,
+          companyId: company.id,
+          status: { not: "SIGNED_UP" },
+        },
+        data: {
+          status: "SIGNED_UP",
+          signedUpAt: new Date(),
+          signedUpUserId: user.id,
+        },
+      });
+    } catch (err) {
+      console.error("[partner-signup] invite attribution failed:", err);
+    }
+  }
 
   await sendNewPartnerSignupNotification(
     {

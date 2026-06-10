@@ -5,7 +5,13 @@ import { partnerSignupAction, type PartnerSignupState } from "./actions";
 
 const initial: PartnerSignupState = {};
 
-export function PartnerSignupForm({ slug }: { slug: string }) {
+export function PartnerSignupForm({
+  slug,
+  inviteToken,
+}: {
+  slug: string;
+  inviteToken?: string | null;
+}) {
   const [state, formAction, pending] = useActionState(
     partnerSignupAction,
     initial,
@@ -14,6 +20,9 @@ export function PartnerSignupForm({ slug }: { slug: string }) {
   return (
     <form action={formAction} className="space-y-4">
       <input type="hidden" name="slug" value={slug} />
+      {inviteToken && (
+        <input type="hidden" name="inviteToken" value={inviteToken} />
+      )}
       {state.formError && (
         <div className="bg-rose-50 border border-rose-200 text-rose-800 text-sm rounded-lg px-3 py-2">
           {state.formError}

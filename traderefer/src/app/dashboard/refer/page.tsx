@@ -19,8 +19,9 @@ export default async function ReferPage() {
         Refer a customer
       </h1>
       <p className="text-slate-600 mb-6 text-sm">
-        Fill in your customer&apos;s details. {company.name} will contact them
-        within 1 working day to book a free survey. You&apos;ll earn{" "}
+        Fill in your customer&apos;s details. {company.name}{" "}
+        will contact them within 1 working day to book a free survey.
+        You&apos;ll earn{" "}
         {formatCompanyMoney(company, payouts.appointment)} the moment the
         appointment is confirmed, and an additional{" "}
         {formatCompanyMoney(company, payouts.job)} if the job sells — up to{" "}

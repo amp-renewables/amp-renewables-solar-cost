@@ -10,12 +10,21 @@ import { PartnerSignupForm } from "./PartnerSignupForm";
 
 export default async function PartnerSignupPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ invite?: string }>;
 }) {
   const { slug } = await params;
   const company = await getCompanyBySlug(slug);
   if (!company) notFound();
+
+  // Optional invite token from a bulk SMS/email invitation. Passed
+  // through the form so the signup action can attribute the conversion
+  // back to the specific invite. Invalid/expired tokens are harmless —
+  // attribution just silently doesn't happen.
+  const sp = await searchParams;
+  const inviteToken = sp.invite?.trim() || null;
 
   // Allow logged-in users to view this page so company admins can QA their
   // own partner-signup flow without logging out. The form will still
@@ -103,7 +112,7 @@ export default async function PartnerSignupPage({
           <p className="text-slate-600 mb-6 text-sm">
             Sign up takes 30 seconds. No fees, no contracts.
           </p>
-          <PartnerSignupForm slug={company.slug} />
+          <PartnerSignupForm slug={company.slug} inviteToken={inviteToken} />
         </div>
       </div>
     </div>

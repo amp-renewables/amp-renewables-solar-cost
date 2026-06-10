@@ -98,27 +98,38 @@ export default async function CompanyReferralDetailPage({
             <Row
               label="Email"
               value={
-                <a
-                  href={`mailto:${referral.customerEmail}`}
-                  className="text-brand underline"
-                >
-                  {referral.customerEmail}
-                </a>
+                referral.customerEmail ? (
+                  <a
+                    href={`mailto:${referral.customerEmail}`}
+                    className="text-brand underline"
+                  >
+                    {referral.customerEmail}
+                  </a>
+                ) : (
+                  <span className="text-slate-400">
+                    Not provided — ask when you call
+                  </span>
+                )
               }
             />
             <Row
               label="Address"
               value={
                 <>
-                  {referral.addressLine1}
-                  {referral.addressLine2 && (
+                  {referral.addressLine1 && (
                     <>
+                      {referral.addressLine1}
                       <br />
-                      {referral.addressLine2}
                     </>
                   )}
-                  <br />
-                  {referral.city}, {referral.postcode}
+                  {referral.addressLine2 && (
+                    <>
+                      {referral.addressLine2}
+                      <br />
+                    </>
+                  )}
+                  {referral.city ? `${referral.city}, ` : ""}
+                  {referral.postcode}
                 </>
               }
             />

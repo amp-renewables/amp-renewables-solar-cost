@@ -57,6 +57,13 @@ enum Channel {
   EMAIL
 }
 
+enum InviteStatus {
+  PENDING   // added to the list, not yet sent
+  SENT      // delivered to the SMS/email provider successfully
+  FAILED    // provider rejected it (bad number, bounce, etc)
+  SIGNED_UP // recipient followed their invite link and created an account
+}
+
 // A paying customer of the TradeRefer platform.
 // Their landing page lives at /<slug> (e.g. /amprenewables).
 model Company {
@@ -126,12 +133,55 @@ model Company {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users     User[]
-  referrals Referral[]
-  templates MessageTemplate[]
+  users          User[]
+  referrals      Referral[]
+  templates      MessageTemplate[]
+  partnerInvites PartnerInvite[]
 
   @@index([status])
   @@index([referredByCompanyId])
+}
+
+// A contact a company has invited to become a referral partner — by SMS
+// or email, in bulk from /company/invites. Each invite carries a unique
+// token baked into its signup link so we can attribute conversions
+// ("which of the 50 roofers I texted actually signed up?").
+//
+// PRIVACY: these are contacts the company asserts a business
+// relationship with (confirmed by checkbox at send time). We store the
+// minimum needed to send + display status. No marketing reuse — the
+// platform never contacts these people for its own purposes.
+model PartnerInvite {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  name  String?
+  phone String? // E.164-ish, required for SMS channel
+  email String? // required for EMAIL channel
+
+  channel Channel
+  status  InviteStatus @default(PENDING)
+
+  // Unguessable token embedded in the invite link
+  // (/<slug>/signup?invite=<token>). Marks the invite SIGNED_UP when a
+  // partner account is created through it.
+  token String @unique
+
+  // What was actually sent, post-placeholder-interpolation. Kept for
+  // audit ("what did we text this person?") and debugging.
+  sentMessage String?
+  sentAt      DateTime?
+  failReason  String?
+
+  signedUpAt     DateTime?
+  signedUpUserId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, status])
+  @@index([companyId, createdAt])
 }
 
 model User {
@@ -233,13 +283,17 @@ model Referral {
   partnerId String
   partner   User   @relation(fields: [partnerId], references: [id], onDelete: Restrict)
 
+  // Only name + phone + postcode are required. A tradesman in a van has
+  // the customer's number and roughly where they live — email and full
+  // address are luxuries the company can collect on the follow-up call.
+  // Requiring them was friction that killed mobile submissions.
   customerName  String
   customerPhone String
-  customerEmail String
+  customerEmail String?
 
-  addressLine1 String
+  addressLine1 String?
   addressLine2 String?
-  city         String
+  city         String?
   postcode     String
 
   services String[]

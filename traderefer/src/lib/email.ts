@@ -31,10 +31,10 @@ type ReferralPayload = {
   id: string;
   customerName: string;
   customerPhone: string;
-  customerEmail: string;
-  addressLine1: string;
+  customerEmail: string | null;
+  addressLine1: string | null;
   addressLine2?: string | null;
-  city: string;
+  city: string | null;
   postcode: string;
   services: string[];
   notes?: string | null;
@@ -75,7 +75,7 @@ export async function sendNewReferralNotification(
   const addressLines = [
     referral.addressLine1,
     referral.addressLine2,
-    `${referral.city}, ${referral.postcode}`,
+    referral.city ? `${referral.city}, ${referral.postcode}` : referral.postcode,
   ].filter(Boolean) as string[];
 
   const html = `
@@ -87,7 +87,11 @@ export async function sendNewReferralNotification(
       <table style="border-collapse:collapse;font-size:14px;">
         <tr><td style="padding:4px 12px 4px 0;color:#888;">Name</td><td style="padding:4px 0;font-weight:500;">${esc(referral.customerName)}</td></tr>
         <tr><td style="padding:4px 12px 4px 0;color:#888;">Phone</td><td style="padding:4px 0;"><a href="tel:${esc(referral.customerPhone)}" style="color:${company.primaryColor};">${esc(referral.customerPhone)}</a></td></tr>
-        <tr><td style="padding:4px 12px 4px 0;color:#888;">Email</td><td style="padding:4px 0;"><a href="mailto:${esc(referral.customerEmail)}" style="color:${company.primaryColor};">${esc(referral.customerEmail)}</a></td></tr>
+        ${
+          referral.customerEmail
+            ? `<tr><td style="padding:4px 12px 4px 0;color:#888;">Email</td><td style="padding:4px 0;"><a href="mailto:${esc(referral.customerEmail)}" style="color:${company.primaryColor};">${esc(referral.customerEmail)}</a></td></tr>`
+            : ""
+        }
         <tr><td style="padding:4px 12px 4px 0;color:#888;vertical-align:top;">Address</td><td style="padding:4px 0;">${addressLines.map(esc).join("<br/>")}</td></tr>
         <tr><td style="padding:4px 12px 4px 0;color:#888;">Services</td><td style="padding:4px 0;">${esc(referral.services.join(", "))}</td></tr>
         ${
@@ -125,7 +129,7 @@ export async function sendNewReferralNotification(
     `CUSTOMER`,
     `Name:     ${referral.customerName}`,
     `Phone:    ${referral.customerPhone}`,
-    `Email:    ${referral.customerEmail}`,
+    referral.customerEmail ? `Email:    ${referral.customerEmail}` : null,
     `Address:  ${addressLines.join(", ")}`,
     `Services: ${referral.services.join(", ")}`,
     referral.notes ? `Notes:    ${referral.notes}` : null,

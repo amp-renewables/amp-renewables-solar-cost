@@ -1,10 +1,23 @@
 import "./globals.css";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { platform } from "@/lib/platform";
 
 export const metadata: Metadata = {
   title: `${platform.name} — Turn your contacts into a referral engine`,
   description: `Turn local tradesmen and former customers into a referral engine for your business. Branded sign-up page, partner dashboards, payout tracking — all included.`,
+  // iOS "Add to Home Screen" reads these — without them the installed
+  // app gets a Safari-chrome wrapper instead of a standalone window.
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: platform.name,
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#1e293b",
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({
