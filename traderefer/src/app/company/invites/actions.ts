@@ -117,6 +117,10 @@ const SendSchema = z.object({
   message: z.string().trim().min(20, "Message is too short").max(1600),
   subject: z.string().trim().max(150).optional(),
   channel: z.enum(["SMS", "EMAIL"]),
+  // Optional teammate to send as. Validated against the company's admin
+  // list server-side; absent (single-admin companies don't render the
+  // dropdown) falls back to the logged-in admin.
+  senderId: z.string().trim().optional(),
   // The business-relationship confirmation — same legal pattern as the
   // customer-consent checkbox on the referral form.
   contactsConfirmed: z.literal("1", {
@@ -143,12 +147,48 @@ export async function sendInvitesAction(
     message: formData.get("message"),
     subject: formData.get("subject") || undefined,
     channel: formData.get("channel"),
+    senderId: formData.get("senderId") || undefined,
     contactsConfirmed: formData.get("contactsConfirmed"),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid form." };
   }
-  const { message, subject, channel } = parsed.data;
+  const { message, subject, channel, senderId } = parsed.data;
+
+  // Resolve who the batch is "sent as". Defaults to the logged-in admin;
+  // a different teammate must be a COMPANY_ADMIN of the SAME company —
+  // otherwise the form was tampered with and we fail loudly rather than
+  // silently falling back (silently sending as someone else would be
+  // worse than an error).
+  let sender = {
+    fullName: admin.fullName,
+    businessName: admin.businessName,
+    email: admin.email,
+  };
+  if (senderId && senderId !== admin.id) {
+    const teammate = await prisma.user.findUnique({
+      where: { id: senderId },
+      select: {
+        companyId: true,
+        role: true,
+        fullName: true,
+        businessName: true,
+        email: true,
+      },
+    });
+    if (
+      !teammate ||
+      teammate.companyId !== admin.companyId ||
+      teammate.role !== "COMPANY_ADMIN"
+    ) {
+      return { error: "That sender isn't on your team." };
+    }
+    sender = {
+      fullName: teammate.fullName,
+      businessName: teammate.businessName,
+      email: teammate.email,
+    };
+  }
 
   if (channel === "SMS" && !smsConfigured()) {
     return {
@@ -192,7 +232,7 @@ export async function sendInvitesAction(
   }
 
   const senderName =
-    admin.fullName?.trim() || admin.businessName?.trim() || company.name;
+    sender.fullName?.trim() || sender.businessName?.trim() || company.name;
 
   let sent = 0;
   let failed = 0;
@@ -231,7 +271,7 @@ export async function sendInvitesAction(
         const { error } = await resend!.emails.send({
           from: `${fromDisplay} <${FROM_EMAIL}>`,
           to: invite.email!,
-          replyTo: admin.email,
+          replyTo: sender.email,
           subject: renderedSubject,
           text: body,
         });

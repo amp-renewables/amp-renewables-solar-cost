@@ -18,13 +18,20 @@ export default async function CompanyInvitesPage() {
   const company = await getCurrentCompany();
   if (!company) return null;
 
-  const [invites, sentToday] = await Promise.all([
+  const [invites, sentToday, teamMembers] = await Promise.all([
     prisma.partnerInvite.findMany({
       where: { companyId: admin.companyId },
       orderBy: { createdAt: "desc" },
       take: 500,
     }),
     sentInLast24h(admin.companyId),
+    // Everyone the batch can be "sent as" — the company's admin team.
+    // Drives the From display name, Reply-To, and {{senderName}}.
+    prisma.user.findMany({
+      where: { companyId: admin.companyId, role: "COMPANY_ADMIN" },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, fullName: true, email: true },
+    }),
   ]);
 
   const counts = {
@@ -80,6 +87,13 @@ export default async function CompanyInvitesPage() {
           emailBody: DEFAULT_EMAIL_TEMPLATE,
         }}
         placeholders={INVITE_PLACEHOLDERS}
+        senders={teamMembers.map((m) => ({
+          id: m.id,
+          label: m.fullName
+            ? `${m.fullName} (${m.email})`
+            : m.email,
+        }))}
+        currentUserId={admin.id}
       />
 
       <InviteTable

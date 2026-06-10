@@ -13,6 +13,8 @@ const sendInitial: SendInvitesState = {};
 
 type Channel = "SMS" | "EMAIL";
 
+type Sender = { id: string; label: string };
+
 export function InviteComposer({
   smsAvailable,
   pendingSms,
@@ -21,6 +23,8 @@ export function InviteComposer({
   dailyCap,
   defaults,
   placeholders,
+  senders,
+  currentUserId,
 }: {
   smsAvailable: boolean;
   pendingSms: number;
@@ -29,6 +33,8 @@ export function InviteComposer({
   dailyCap: number;
   defaults: { sms: string; emailSubject: string; emailBody: string };
   placeholders: Array<{ token: string; description: string }>;
+  senders: Sender[];
+  currentUserId: string;
 }) {
   const [channel, setChannel] = useState<Channel>(
     smsAvailable ? "SMS" : "EMAIL",
@@ -75,6 +81,8 @@ export function InviteComposer({
         dailyCap={dailyCap}
         defaults={defaults}
         placeholders={placeholders}
+        senders={senders}
+        currentUserId={currentUserId}
       />
     </div>
   );
@@ -206,6 +214,8 @@ function ComposeForm({
   dailyCap,
   defaults,
   placeholders,
+  senders,
+  currentUserId,
 }: {
   channel: Channel;
   smsAvailable: boolean;
@@ -214,6 +224,8 @@ function ComposeForm({
   dailyCap: number;
   defaults: { sms: string; emailSubject: string; emailBody: string };
   placeholders: Array<{ token: string; description: string }>;
+  senders: Sender[];
+  currentUserId: string;
 }) {
   const [state, action, pending] = useActionState(
     sendInvitesAction,
@@ -240,6 +252,29 @@ function ComposeForm({
       <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
         2 · Write your message
       </h2>
+
+      {/* Who the invite appears to come from. Drives the From display
+          name, Reply-To and the {{senderName}} placeholder. Only shown
+          when there's actually a choice to make. */}
+      {senders.length > 1 && (
+        <label className="block">
+          <span className="text-xs font-medium text-slate-600">Send as</span>
+          <select
+            name="senderId"
+            defaultValue={currentUserId}
+            className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand"
+          >
+            {senders.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+          <span className="text-xs text-slate-500 mt-1 block">
+            Their name appears as the sender and replies go to their inbox.
+          </span>
+        </label>
+      )}
 
       {channel === "EMAIL" && (
         <label className="block">
