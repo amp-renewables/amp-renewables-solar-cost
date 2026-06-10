@@ -217,6 +217,111 @@ export async function sendNewPartnerSignupNotification(
   }
 }
 
+/**
+ * Goes to a new PARTNER the moment they sign up under a company's
+ * programme. Branded as the company (From display name + reply-to their
+ * contact email) since the partner's relationship is with the company,
+ * not with TradeRefer. Covers: the deal, how to refer, the bank-details
+ * nudge.
+ */
+export async function sendPartnerWelcomeEmail(
+  partner: { email: string; fullName: string | null },
+  company: CompanyPayload,
+): Promise<void> {
+  if (!resend) {
+    console.warn(
+      `[email] no RESEND_API_KEY — partner welcome for ${partner.email} skipped`,
+    );
+    return;
+  }
+
+  const firstName = partner.fullName?.trim().split(/\s+/)[0] || "there";
+  const appointment = formatCompanyMoney(
+    company,
+    Number(company.payoutAppointment),
+  );
+  const job = formatCompanyMoney(company, Number(company.payoutJob));
+  const total = formatCompanyMoney(
+    company,
+    Number(company.payoutAppointment) + Number(company.payoutJob),
+  );
+  const referLink = `${APP_URL}/dashboard/refer`;
+  const settingsLink = `${APP_URL}/dashboard/settings`;
+  const fromDisplay = company.name.replace(/["<>]/g, "");
+
+  const subject = `You're in — start earning ${total} per customer you refer to ${company.name}`;
+
+  const html = `
+    <div style="font-family:system-ui,sans-serif;color:#222;max-width:560px;">
+      <h2 style="color:${company.primaryColor};margin-bottom:8px;">
+        Welcome aboard, ${esc(firstName)}
+      </h2>
+      <p style="color:#444;line-height:1.5;">
+        You're now a referral partner for <strong>${esc(company.name)}</strong>.
+        Here's the deal, in black and white:
+      </p>
+      <table style="border-collapse:collapse;font-size:14px;margin:20px 0;">
+        <tr><td style="padding:4px 16px 4px 0;color:#888;">Appointment booked</td><td style="padding:4px 0;font-weight:600;">${esc(appointment)}</td></tr>
+        <tr><td style="padding:4px 16px 4px 0;color:#888;">Job sells</td><td style="padding:4px 0;font-weight:600;">${esc(job)} more</td></tr>
+        <tr><td style="padding:4px 16px 4px 0;color:#888;">Per customer</td><td style="padding:4px 0;font-weight:600;color:${company.primaryColor};">up to ${esc(total)}</td></tr>
+      </table>
+      <p style="color:#444;line-height:1.5;">
+        Two things to do now:
+      </p>
+      <ol style="color:#444;font-size:14px;line-height:1.6;padding-left:20px;">
+        <li>
+          <strong>Send your first referral</strong> — name, mobile and
+          postcode is all it takes. Takes under a minute.
+        </li>
+        <li>
+          <strong>Add your bank details</strong> in your account settings
+          so payouts can reach you. They're encrypted and only
+          ${esc(company.name)} can see them.
+        </li>
+      </ol>
+      <p style="margin-top:24px;">
+        <a href="${referLink}" style="background:${company.primaryColor};color:#fff;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:500;display:inline-block;">Refer a customer</a>
+        &nbsp;
+        <a href="${settingsLink}" style="color:${company.primaryColor};font-size:14px;">Add bank details →</a>
+      </p>
+      <p style="margin-top:28px;color:#999;font-size:12px;">
+        Tip: save the link on your phone — open ${esc(APP_URL.replace("https://", ""))}
+        in your browser and choose "Add to Home Screen" to keep it one tap
+        away. Questions? Just reply to this email.
+      </p>
+    </div>
+  `;
+
+  const text = [
+    `Welcome aboard, ${firstName}`,
+    ``,
+    `You're now a referral partner for ${company.name}. The deal:`,
+    ``,
+    `Appointment booked:  ${appointment}`,
+    `Job sells:           ${job} more`,
+    `Per customer:        up to ${total}`,
+    ``,
+    `Two things to do now:`,
+    `1. Send your first referral — name, mobile and postcode is all it takes: ${referLink}`,
+    `2. Add your bank details so payouts can reach you: ${settingsLink}`,
+    ``,
+    `Questions? Just reply to this email.`,
+  ].join("\n");
+
+  try {
+    await resend.emails.send({
+      from: `${fromDisplay} <${FROM_EMAIL}>`,
+      to: partner.email,
+      replyTo: company.contactEmail,
+      subject,
+      html,
+      text,
+    });
+  } catch (err) {
+    console.error("[email] partner welcome failed:", err);
+  }
+}
+
 // Goes to the new Company admin when they sign up — confirms the account
 // is set up and gives them the key URLs (landing page, partner signup link,
 // login). Sent in addition to (not instead of) the operator notification.

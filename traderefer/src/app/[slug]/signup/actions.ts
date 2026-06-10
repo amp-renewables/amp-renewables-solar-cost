@@ -5,7 +5,10 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { createSession, hashPassword } from "@/lib/auth";
 import { getCompanyBySlug } from "@/lib/company";
-import { sendNewPartnerSignupNotification } from "@/lib/email";
+import {
+  sendNewPartnerSignupNotification,
+  sendPartnerWelcomeEmail,
+} from "@/lib/email";
 
 const SignupSchema = z.object({
   slug: z.string().min(1),
@@ -97,16 +100,25 @@ export async function partnerSignupAction(
     }
   }
 
-  await sendNewPartnerSignupNotification(
-    {
-      id: user.id,
-      email: user.email,
-      fullName: user.fullName,
-      businessName: user.businessName,
-      phone: user.phone,
-    },
-    company,
-  );
+  // Two emails in parallel: the ops notification to the company admin,
+  // and the welcome to the new partner. Both fire-and-forget — a failed
+  // send never blocks the signup.
+  await Promise.all([
+    sendNewPartnerSignupNotification(
+      {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        businessName: user.businessName,
+        phone: user.phone,
+      },
+      company,
+    ),
+    sendPartnerWelcomeEmail(
+      { email: user.email, fullName: user.fullName },
+      company,
+    ),
+  ]);
 
   await createSession(user.id, user.role, user.companyId);
   redirect("/dashboard");
