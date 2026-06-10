@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { requireCompanyAdmin } from "@/lib/auth";
 import { assertCompanyCanWriteById } from "@/lib/stripe";
 import { expectedPayoutsForStatus } from "@/lib/payouts";
+import { sendBankDetailsNeededEmail } from "@/lib/email";
 import type { ReferralStatus } from "@prisma/client";
 
 const StatusSchema = z.object({
@@ -89,6 +90,10 @@ export async function updateReferralStatusAction(formData: FormData) {
     updates.rejectedReason = parsed.rejectedReason || null;
   }
 
+  // Tracks money that became newly owed in this transaction — used to
+  // decide whether the partner needs the "add your bank details" nudge.
+  let newlyPendingAmount = 0;
+
   await prisma.$transaction(async (tx) => {
     await tx.referral.update({
       where: { id: existing.id },
@@ -122,11 +127,13 @@ export async function updateReferralStatusAction(formData: FormData) {
             status: "PENDING",
           },
         });
+        newlyPendingAmount += Number(e.amount);
       } else if (current.status === "CANCELLED") {
         await tx.payout.update({
           where: { id: current.id },
           data: { status: "PENDING", amount: e.amount },
         });
+        newlyPendingAmount += Number(e.amount);
       }
     }
 
@@ -140,6 +147,43 @@ export async function updateReferralStatusAction(formData: FormData) {
       }
     }
   });
+
+  // BANK-DETAILS NUDGE: if this change put new money in the partner's
+  // pending column and they have nowhere to receive it, tell them now —
+  // while the win is fresh. Fire-and-forget; failures never block the
+  // status update (which has already committed).
+  if (newlyPendingAmount > 0) {
+    try {
+      const partner = await prisma.user.findUnique({
+        where: { id: existing.partnerId },
+        select: {
+          email: true,
+          fullName: true,
+          bankSortCode: true,
+          bankAccountNumber: true,
+        },
+      });
+      if (partner && (!partner.bankSortCode || !partner.bankAccountNumber)) {
+        const pendingAgg = await prisma.payout.aggregate({
+          _sum: { amount: true },
+          where: {
+            status: "PENDING",
+            referral: { partnerId: existing.partnerId },
+          },
+        });
+        await sendBankDetailsNeededEmail(
+          { email: partner.email, fullName: partner.fullName },
+          existing.company,
+          {
+            justEarned: newlyPendingAmount,
+            totalPending: Number(pendingAgg._sum.amount ?? 0),
+          },
+        );
+      }
+    } catch (err) {
+      console.error("[updateReferralStatusAction] bank nudge failed:", err);
+    }
+  }
 
   revalidatePath(`/company/referrals/${existing.id}`);
   revalidatePath("/company/referrals");

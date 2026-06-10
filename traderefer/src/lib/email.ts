@@ -322,6 +322,91 @@ export async function sendPartnerWelcomeEmail(
   }
 }
 
+/**
+ * Goes to a PARTNER the moment a payout goes PENDING for them while
+ * they have no bank details on file. This is the "Sarah refers a
+ * customer, the appointment books, £50 sits unpayable, Sarah ghosts"
+ * loop-closer. Branded as the company, same as the welcome email.
+ *
+ * Sent once per triggering status change (not on a nagging schedule) —
+ * the company's payouts page flags missing details for manual chasing
+ * if this doesn't land.
+ */
+export async function sendBankDetailsNeededEmail(
+  partner: { email: string; fullName: string | null },
+  company: CompanyPayload,
+  amounts: { justEarned: number; totalPending: number },
+): Promise<void> {
+  if (!resend) {
+    console.warn(
+      `[email] no RESEND_API_KEY — bank-details-needed for ${partner.email} skipped`,
+    );
+    return;
+  }
+
+  const firstName = partner.fullName?.trim().split(/\s+/)[0] || "there";
+  const justEarned = formatCompanyMoney(company, amounts.justEarned);
+  const totalPending = formatCompanyMoney(company, amounts.totalPending);
+  const settingsLink = `${APP_URL}/dashboard/settings`;
+  const fromDisplay = company.name.replace(/["<>]/g, "");
+
+  const subject = `You've earned ${justEarned} — add your bank details so ${company.name} can pay you`;
+
+  const html = `
+    <div style="font-family:system-ui,sans-serif;color:#222;max-width:560px;">
+      <h2 style="color:${company.primaryColor};margin-bottom:8px;">
+        Good news, ${esc(firstName)} — you're owed money
+      </h2>
+      <p style="color:#444;line-height:1.5;">
+        One of your referrals just moved forward, which puts
+        <strong> ${esc(justEarned)}</strong> in your pending payouts
+        ${
+          amounts.totalPending > amounts.justEarned
+            ? `(<strong>${esc(totalPending)}</strong> pending in total)`
+            : ""
+        }.
+      </p>
+      <p style="color:#444;line-height:1.5;">
+        One snag: <strong>${esc(company.name)} has nowhere to send it</strong> —
+        you haven't added your bank details yet. Takes under a minute:
+      </p>
+      <p style="margin-top:20px;">
+        <a href="${settingsLink}" style="background:${company.primaryColor};color:#fff;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:500;display:inline-block;">Add my bank details</a>
+      </p>
+      <p style="margin-top:24px;color:#999;font-size:12px;">
+        Your sort code and account number are encrypted the moment you save
+        them, and only ${esc(company.name)} can see them — and only when
+        they're actually paying you. Questions? Just reply to this email.
+      </p>
+    </div>
+  `;
+
+  const text = [
+    `Good news, ${firstName} — you're owed money`,
+    ``,
+    `One of your referrals just moved forward, which puts ${justEarned} in your pending payouts${amounts.totalPending > amounts.justEarned ? ` (${totalPending} pending in total)` : ""}.`,
+    ``,
+    `One snag: ${company.name} has nowhere to send it — you haven't added your bank details yet. Takes under a minute:`,
+    ``,
+    settingsLink,
+    ``,
+    `Your details are encrypted on save and only ${company.name} can see them. Questions? Just reply to this email.`,
+  ].join("\n");
+
+  try {
+    await resend.emails.send({
+      from: `${fromDisplay} <${FROM_EMAIL}>`,
+      to: partner.email,
+      replyTo: company.contactEmail,
+      subject,
+      html,
+      text,
+    });
+  } catch (err) {
+    console.error("[email] bank-details-needed failed:", err);
+  }
+}
+
 // Goes to the new Company admin when they sign up — confirms the account
 // is set up and gives them the key URLs (landing page, partner signup link,
 // login). Sent in addition to (not instead of) the operator notification.
