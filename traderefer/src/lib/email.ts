@@ -323,6 +323,73 @@ export async function sendPartnerWelcomeEmail(
 }
 
 /**
+ * Forwards an inbound SMS reply (to our Twilio number) to the company
+ * whose invite/partner the sender matches. The reply moment is the
+ * conversion moment — this email is built to make texting them back
+ * effortless: the sender's number is front and centre.
+ */
+export async function sendInboundSmsForwardEmail(
+  company: Pick<Company, "name" | "contactEmail" | "primaryColor">,
+  sms: {
+    fromNumber: string;
+    body: string;
+    senderName: string | null;
+    senderContext: string; // e.g. "invited 2 days ago", "existing partner"
+  },
+): Promise<void> {
+  if (!resend) {
+    console.warn(
+      `[email] no RESEND_API_KEY — inbound SMS forward for ${company.contactEmail} skipped`,
+    );
+    return;
+  }
+
+  const who = sms.senderName || sms.fromNumber;
+  const subject = `Text reply from ${who}: "${sms.body.slice(0, 60)}${sms.body.length > 60 ? "…" : ""}"`;
+
+  const html = `
+    <div style="font-family:system-ui,sans-serif;color:#222;max-width:560px;">
+      <h2 style="color:${company.primaryColor};margin-bottom:4px;">
+        ${esc(who)} texted back
+      </h2>
+      <p style="color:#666;margin-top:0;font-size:13px;">
+        ${esc(sms.senderContext)} · replied to your ${esc(platform.name)} invite number
+      </p>
+      <blockquote style="border-left:3px solid ${company.primaryColor};margin:20px 0;padding:8px 16px;background:#f8fafc;font-size:15px;white-space:pre-wrap;">${esc(sms.body)}</blockquote>
+      <p style="font-size:14px;color:#444;">
+        Reply directly from your own phone:
+        <a href="sms:${esc(sms.fromNumber)}" style="color:${company.primaryColor};font-weight:600;">${esc(sms.fromNumber)}</a>
+      </p>
+      <p style="margin-top:24px;color:#999;font-size:12px;">
+        Texts to the invite number aren't a two-way inbox — replies land
+        here as email. Texting them back from your own number keeps the
+        conversation personal.
+      </p>
+    </div>
+  `;
+
+  const text = [
+    `${who} texted back (${sms.senderContext}):`,
+    ``,
+    `"${sms.body}"`,
+    ``,
+    `Reply directly from your own phone: ${sms.fromNumber}`,
+  ].join("\n");
+
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: company.contactEmail,
+      subject,
+      html,
+      text,
+    });
+  } catch (err) {
+    console.error("[email] inbound SMS forward failed:", err);
+  }
+}
+
+/**
  * Goes to a PARTNER the moment a payout goes PENDING for them while
  * they have no bank details on file. This is the "Sarah refers a
  * customer, the appointment books, £50 sits unpayable, Sarah ghosts"
