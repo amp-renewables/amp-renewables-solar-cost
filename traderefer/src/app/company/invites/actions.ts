@@ -218,8 +218,18 @@ export async function sendInvitesAction(
           invite,
           senderName,
         );
+        // Friendly From display name so the recipient's inbox shows
+        // "Joe Murray at AMP Renewables" rather than a bare platform
+        // address they've never heard of. The actual sending address
+        // must stay on our verified domain (Resend rejects anything
+        // else); display name is free text. Quotes stripped from the
+        // name so a creative company name can't break the header.
+        const fromDisplay = `${senderName} at ${company.name}`.replace(
+          /["<>]/g,
+          "",
+        );
         const { error } = await resend!.emails.send({
-          from: FROM_EMAIL,
+          from: `${fromDisplay} <${FROM_EMAIL}>`,
           to: invite.email!,
           replyTo: admin.email,
           subject: renderedSubject,
