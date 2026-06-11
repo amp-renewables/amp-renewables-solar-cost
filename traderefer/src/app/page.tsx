@@ -35,7 +35,8 @@ export default async function HomePage() {
             For installers, trades &amp; home-service businesses
           </span>
           <h1 className="text-5xl sm:text-7xl font-extrabold leading-[1.02] mb-6 tracking-tight">
-            Stop Hoping for Word-of-Mouth.
+            Stop Hoping for{" "}
+            <span className="whitespace-nowrap">Word-of-Mouth.</span>
             <br />
             Systemise It.
           </h1>

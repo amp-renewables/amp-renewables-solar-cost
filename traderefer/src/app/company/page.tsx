@@ -6,6 +6,7 @@ import { companyWriteGate } from "@/lib/stripe";
 import { platform, formatPrice } from "@/lib/platform";
 import { getReferralStanding } from "@/lib/referral";
 import { StatusBadge } from "@/components/StatusBadge";
+import { CopyLinkButton } from "@/components/CopyLinkButton";
 
 export default async function CompanyOverviewPage() {
   const user = await requireCompanyAdmin();
@@ -147,20 +148,23 @@ export default async function CompanyOverviewPage() {
         >
           Overview
         </h1>
-        <p className="text-slate-600 text-sm mt-1">
-          Your partner signup page:{" "}
-          <a
-            href={`/${company.slug}/signup`}
-            target="_blank"
-            rel="noopener"
-            className="text-brand underline"
-          >
-            {partnerSignupUrl}
-          </a>
+        <p className="text-slate-600 text-sm mt-1 flex items-center gap-2 flex-wrap">
+          <span>
+            Your partner signup page:{" "}
+            <a
+              href={`/${company.slug}/signup`}
+              target="_blank"
+              rel="noopener"
+              className="text-brand underline break-all"
+            >
+              {partnerSignupUrl}
+            </a>
+          </span>
+          <CopyLinkButton value={partnerSignupUrl} />
         </p>
       </div>
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Stat label="Total referrals" value={String(totalReferrals)} />
         <Stat label="Active" value={String(activeReferrals)} />
         <Stat label="Jobs sold" value={String(jobsSold)} />

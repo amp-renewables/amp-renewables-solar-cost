@@ -78,12 +78,55 @@ export default async function CompanyLandingPage({
             Refer customers to {company.name}. Earn up to{" "}
             {formatCompanyMoney(company, payouts.total)} per job.
           </h1>
-          <p className="text-lg text-emerald-100 max-w-2xl mx-auto mb-10">
+          <p className="text-lg text-emerald-100 max-w-2xl mx-auto mb-8">
             {company.heroSubheading ??
               (payouts.appointment > 0
                 ? `A simple referral programme for roofers, electricians and other trades. Send a customer to ${company.name} — they book the appointment and pay you ${formatCompanyMoney(company, payouts.appointment)}. If the job sells, you earn another ${formatCompanyMoney(company, payouts.job)}.`
                 : `A simple referral programme for roofers, electricians and other trades. Send a customer to ${company.name} — when their job sells, you earn ${formatCompanyMoney(company, payouts.job)}.`)}
           </p>
+
+          {/* The deal as cards, not just prose — same treatment the
+              TradeRefer homepage gives this programme. Accent card =
+              the headline total. Collapses to one card for
+              sold-jobs-only deals. */}
+          {payouts.appointment > 0 ? (
+            <div className="grid sm:grid-cols-3 gap-3 max-w-3xl mx-auto mb-10 text-left">
+              <div className="bg-white/10 border border-white/15 rounded-xl px-5 py-4">
+                <div className="text-2xl font-bold">
+                  {formatCompanyMoney(company, payouts.appointment)}
+                </div>
+                <div className="text-sm text-emerald-100 mt-0.5">
+                  when the appointment is booked
+                </div>
+              </div>
+              <div className="bg-white/10 border border-white/15 rounded-xl px-5 py-4">
+                <div className="text-2xl font-bold">
+                  {formatCompanyMoney(company, payouts.job)}
+                </div>
+                <div className="text-sm text-emerald-100 mt-0.5">
+                  more when the job sells
+                </div>
+              </div>
+              <div className="bg-brand-accent text-brand rounded-xl px-5 py-4">
+                <div className="text-2xl font-bold">
+                  Up to {formatCompanyMoney(company, payouts.total)}
+                </div>
+                <div className="text-sm mt-0.5">per referred customer</div>
+              </div>
+            </div>
+          ) : (
+            <div className="max-w-xs mx-auto mb-10 text-left">
+              <div className="bg-brand-accent text-brand rounded-xl px-5 py-4 text-center">
+                <div className="text-2xl font-bold">
+                  {formatCompanyMoney(company, payouts.job)}
+                </div>
+                <div className="text-sm mt-0.5">
+                  for every referred job that sells
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
               href={`/${company.slug}/signup`}

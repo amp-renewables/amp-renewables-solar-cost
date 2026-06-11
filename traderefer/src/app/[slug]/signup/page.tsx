@@ -41,10 +41,8 @@ export default async function PartnerSignupPage({
   const allowAmbassador = company.acceptsAmbassadors;
 
   // Same rates for every referrer type — one honest headline number.
-  const headlineTotal = formatCompanyMoney(
-    company,
-    payoutsForCompany(company).total,
-  );
+  const payouts = payoutsForCompany(company);
+  const headlineTotal = formatCompanyMoney(company, payouts.total);
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
@@ -72,11 +70,60 @@ export default async function PartnerSignupPage({
         </div>
         <div className="my-12">
           <h1
-            className="text-3xl sm:text-4xl font-bold mb-4 leading-tight"
+            className="text-3xl sm:text-4xl font-bold mb-8 leading-tight"
           >
             Earn up to {headlineTotal} per customer you refer to{" "}
             {company.name}.
           </h1>
+
+          {/* The deal, in numbers — this panel was previously empty space
+              and this is the conversion moment. Adapts to sold-jobs-only
+              deals (zero appointment rate). */}
+          <div className="space-y-3 mb-8">
+            {payouts.appointment > 0 ? (
+              <>
+                <div className="flex items-baseline gap-3">
+                  <span className="text-2xl font-bold w-20 shrink-0">
+                    {formatCompanyMoney(company, payouts.appointment)}
+                  </span>
+                  <span className="text-emerald-100">
+                    when the appointment is booked
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-3">
+                  <span className="text-2xl font-bold w-20 shrink-0">
+                    {formatCompanyMoney(company, payouts.job)}
+                  </span>
+                  <span className="text-emerald-100">
+                    more when the job sells
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div className="flex items-baseline gap-3">
+                <span className="text-2xl font-bold w-20 shrink-0">
+                  {formatCompanyMoney(company, payouts.job)}
+                </span>
+                <span className="text-emerald-100">when the job sells</span>
+              </div>
+            )}
+          </div>
+
+          <ul className="space-y-2 text-sm text-emerald-100 mb-8">
+            <li className="flex gap-2">
+              <span style={{ color: company.accentColor }}>✓</span>
+              Free to join — signing up takes 30 seconds
+            </li>
+            <li className="flex gap-2">
+              <span style={{ color: company.accentColor }}>✓</span>
+              Every referral tracked — see exactly where each one is
+            </li>
+            <li className="flex gap-2">
+              <span style={{ color: company.accentColor }}>✓</span>
+              Paid by bank transfer; your details are encrypted
+            </li>
+          </ul>
+
           <p className="text-emerald-100">
             Already a partner?{" "}
             <Link
@@ -105,9 +152,9 @@ export default async function PartnerSignupPage({
               <p className="font-medium">Preview mode</p>
               <p className="mt-1 text-amber-800">
                 You&apos;re viewing this page as{" "}
-                <span className="font-medium">{user.email}</span> and
-                you&apos;re already part of this programme. This is exactly
-                what new partners see.{" "}
+                <span className="font-medium">{user.email}</span>
+                {" and "}you&apos;re already part of this programme. This is
+                exactly what new partners see.{" "}
                 <Link
                   href={landingPathForRole(user.role)}
                   className="underline font-medium"
@@ -142,7 +189,7 @@ export default async function PartnerSignupPage({
           ) : (
             <>
               <h2 className="text-2xl font-bold text-brand mb-2">
-                Become a {company.name} partner
+                Join the {company.name} referral programme
               </h2>
               <p className="text-slate-600 mb-6 text-sm">
                 Sign up takes 30 seconds. No fees, no contracts.

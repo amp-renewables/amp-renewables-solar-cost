@@ -174,8 +174,8 @@ function AddContactsForm({ channel }: { channel: Channel }) {
         className="block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand"
       />
       <p className="text-xs text-slate-500">
-        Name first, then {channel === "SMS" ? "mobile number" : "email"} —
-        commas or tabs between them. We&apos;ll spot which is which, skip
+        Name first, then {channel === "SMS" ? "mobile number" : "email"}
+        {" — "}commas or tabs between them. We&apos;ll spot which is which, skip
         duplicates, and keep whatever extra columns your CSV has out of the
         way.
       </p>

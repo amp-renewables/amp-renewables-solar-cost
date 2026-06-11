@@ -94,7 +94,7 @@ export default async function DashboardOverviewPage() {
         </div>
       )}
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Stat label="Total referrals" value={String(totalReferrals)} />
         <Stat label="Jobs sold" value={String(jobsSold)} />
         <Stat
