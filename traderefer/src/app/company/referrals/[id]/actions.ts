@@ -58,23 +58,6 @@ export async function updateReferralStatusAction(formData: FormData) {
     throw new Error("Not authorised to modify this referral");
   }
 
-  // Payout amounts depend on what KIND of referrer this is at this
-  // company — ambassadors earn the ambassador rates. If the membership
-  // has since been removed, fall back to business rates (the referral
-  // itself remains payable).
-  const referrerMembership = await prisma.membership.findUnique({
-    where: {
-      userId_companyId: {
-        userId: existing.partnerId,
-        companyId: existing.companyId,
-      },
-    },
-    select: { role: true },
-  });
-  const referrerRole =
-    referrerMembership?.role === "AMBASSADOR"
-      ? ("AMBASSADOR" as const)
-      : ("BUSINESS_PARTNER" as const);
 
   const now = new Date();
   const updates: Record<string, unknown> = { status: parsed.toStatus };
@@ -131,7 +114,6 @@ export async function updateReferralStatusAction(formData: FormData) {
     const expected = expectedPayoutsForStatus(
       parsed.toStatus,
       existing.company,
-      referrerRole,
     );
     const existingByType = new Map(existing.payouts.map((p) => [p.type, p]));
 

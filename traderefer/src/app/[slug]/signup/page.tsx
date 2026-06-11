@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getCompanyBySlug, formatCompanyMoney } from "@/lib/company";
-import { ratesForRole } from "@/lib/payouts";
+import {
+  getCompanyBySlug,
+  formatCompanyMoney,
+  payoutsForCompany,
+} from "@/lib/company";
 import { getSessionUser, landingPathForRole } from "@/lib/auth";
 import { PartnerSignupForm, JoinProgrammeForm } from "./PartnerSignupForm";
 
@@ -37,12 +40,11 @@ export default async function PartnerSignupPage({
     company.acceptsBusinessPartners || !company.acceptsAmbassadors;
   const allowAmbassador = company.acceptsAmbassadors;
 
-  const businessRates = ratesForRole(company, "BUSINESS_PARTNER");
-  const ambassadorRates = ratesForRole(company, "AMBASSADOR");
-  const businessTotal = formatCompanyMoney(company, businessRates.total);
-  const ambassadorTotal = formatCompanyMoney(company, ambassadorRates.total);
-  // Headline shows the best rate on offer to whoever's allowed in.
-  const headlineTotal = allowBusiness ? businessTotal : ambassadorTotal;
+  // Same rates for every referrer type — one honest headline number.
+  const headlineTotal = formatCompanyMoney(
+    company,
+    payoutsForCompany(company).total,
+  );
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
@@ -135,8 +137,6 @@ export default async function PartnerSignupPage({
                 inviteToken={inviteToken}
                 allowBusiness={allowBusiness}
                 allowAmbassador={allowAmbassador}
-                businessTotal={businessTotal}
-                ambassadorTotal={ambassadorTotal}
               />
             </>
           ) : (
@@ -152,8 +152,6 @@ export default async function PartnerSignupPage({
                 inviteToken={inviteToken}
                 allowBusiness={allowBusiness}
                 allowAmbassador={allowAmbassador}
-                businessTotal={businessTotal}
-                ambassadorTotal={ambassadorTotal}
               />
             </>
           )}

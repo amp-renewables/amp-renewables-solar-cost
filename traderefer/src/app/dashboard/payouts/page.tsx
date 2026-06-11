@@ -1,7 +1,11 @@
 import { prisma } from "@/lib/db";
 import { requirePartner } from "@/lib/auth";
-import { getCurrentCompany, formatCompanyMoney } from "@/lib/company";
-import { ratesForRole, summarisePayouts } from "@/lib/payouts";
+import {
+  getCurrentCompany,
+  formatCompanyMoney,
+  payoutsForCompany,
+} from "@/lib/company";
+import { summarisePayouts } from "@/lib/payouts";
 
 export default async function PartnerPayoutsPage() {
   const user = await requirePartner();
@@ -15,10 +19,7 @@ export default async function PartnerPayoutsPage() {
   });
 
   const summary = summarisePayouts(payouts);
-  const payoutRules = ratesForRole(
-    company,
-    user.role === "AMBASSADOR" ? "AMBASSADOR" : "BUSINESS_PARTNER",
-  );
+  const payoutRules = payoutsForCompany(company);
 
   return (
     <div className="space-y-6">

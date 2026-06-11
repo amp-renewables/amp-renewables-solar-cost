@@ -15,6 +15,7 @@ export default async function PartnerSettingsPage() {
         fullName: true,
         businessName: true,
         phone: true,
+        postcode: true,
         bankAccountName: true,
         bankSortCode: true,
         bankAccountNumber: true,
@@ -45,6 +46,7 @@ export default async function PartnerSettingsPage() {
           fullName={user.fullName ?? ""}
           businessName={user.businessName ?? ""}
           phone={user.phone ?? ""}
+          postcode={user.postcode ?? ""}
         />
       </section>
 

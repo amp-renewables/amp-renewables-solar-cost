@@ -6,11 +6,14 @@ import { prisma } from "@/lib/db";
 import { requirePartner } from "@/lib/auth";
 import { assertCompanyCanWriteById } from "@/lib/stripe";
 import { encryptField } from "@/lib/crypto";
+import { geocodePostcode } from "@/lib/geo";
 
 const ProfileSchema = z.object({
   fullName: z.string().trim().min(2, "Please enter your name"),
-  businessName: z.string().trim().min(2, "Please enter your business name"),
+  // Optional — ambassadors and individual referrers don't have one.
+  businessName: z.string().trim().optional(),
   phone: z.string().trim().min(7, "Please enter a valid phone"),
+  postcode: z.string().trim().optional(),
 });
 
 const BankSchema = z.object({
@@ -39,8 +42,9 @@ export async function saveProfileAction(
   await assertCompanyCanWriteById(user.companyId);
   const parsed = ProfileSchema.safeParse({
     fullName: formData.get("fullName"),
-    businessName: formData.get("businessName"),
+    businessName: formData.get("businessName") || undefined,
     phone: formData.get("phone"),
+    postcode: formData.get("postcode") || undefined,
   });
   if (!parsed.success) {
     const errors: Record<string, string> = {};
@@ -51,12 +55,45 @@ export async function saveProfileAction(
     }
     return { errors };
   }
+
+  // Geocode only when the postcode actually changed (saves a network
+  // call); reject postcodes that don't geocode rather than storing a
+  // typo that silently breaks "programmes near you".
+  const current = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { postcode: true },
+  });
+  let geo: {
+    postcode: string | null;
+    latitude: number | null;
+    longitude: number | null;
+  } | null = null;
+  const typedPostcode = parsed.data.postcode?.trim() || null;
+  if (!typedPostcode) {
+    geo = { postcode: null, latitude: null, longitude: null };
+  } else if (typedPostcode.toUpperCase() !== current?.postcode?.toUpperCase()) {
+    const result = await geocodePostcode(typedPostcode);
+    if (!result) {
+      return {
+        errors: {
+          postcode: "That doesn't look like a real UK postcode — check it?",
+        },
+      };
+    }
+    geo = {
+      postcode: result.postcode,
+      latitude: result.latitude,
+      longitude: result.longitude,
+    };
+  }
+
   await prisma.user.update({
     where: { id: user.id },
     data: {
       fullName: parsed.data.fullName,
-      businessName: parsed.data.businessName,
+      businessName: parsed.data.businessName || null,
       phone: parsed.data.phone,
+      ...(geo ?? {}),
     },
   });
   revalidatePath("/dashboard/settings");

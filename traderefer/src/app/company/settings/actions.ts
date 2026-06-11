@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireCompanyAdmin } from "@/lib/auth";
 import { assertCompanyCanWriteById } from "@/lib/stripe";
+import { geocodePostcode } from "@/lib/geo";
 
 const SettingsSchema = z.object({
   name: z.string().trim().min(2),
@@ -19,11 +20,7 @@ const SettingsSchema = z.object({
   payoutJob: z.coerce.number().min(0),
   acceptsBusinessPartners: z.boolean(),
   acceptsAmbassadors: z.boolean(),
-  // Optional because the form omits these fields entirely while the
-  // ambassadors checkbox is off — the stored rates are kept untouched
-  // so switching ambassadors back on restores the previous numbers.
-  ambassadorPayoutAppointment: z.coerce.number().min(0).optional(),
-  ambassadorPayoutJob: z.coerce.number().min(0).optional(),
+  postcode: z.string().trim().optional(),
   servicesCsv: z.string().trim().min(1),
 });
 
@@ -54,9 +51,7 @@ export async function saveCompanySettings(
     acceptsBusinessPartners:
       formData.get("acceptsBusinessPartners") === "on",
     acceptsAmbassadors: formData.get("acceptsAmbassadors") === "on",
-    ambassadorPayoutAppointment:
-      formData.get("ambassadorPayoutAppointment") ?? undefined,
-    ambassadorPayoutJob: formData.get("ambassadorPayoutJob") ?? undefined,
+    postcode: formData.get("postcode") || undefined,
     servicesCsv: formData.get("servicesCsv"),
   });
   if (!parsed.success) {
@@ -89,6 +84,45 @@ export async function saveCompanySettings(
     .map((s) => s.trim())
     .filter(Boolean);
 
+  // Geocode the postcode only when it actually changed — saves a
+  // postcodes.io round-trip on every unrelated settings save. A postcode
+  // that fails to geocode is rejected so the company doesn't silently
+  // vanish from "programmes near you" with a typo'd postcode stored.
+  const current = await prisma.company.findUnique({
+    where: { id: admin.companyId },
+    select: { postcode: true },
+  });
+  let geo: {
+    postcode: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    geoDistrict: string | null;
+  } | null = null;
+  const typedPostcode = d.postcode?.trim() || null;
+  if (!typedPostcode) {
+    geo = {
+      postcode: null,
+      latitude: null,
+      longitude: null,
+      geoDistrict: null,
+    };
+  } else if (typedPostcode.toUpperCase() !== current?.postcode?.toUpperCase()) {
+    const result = await geocodePostcode(typedPostcode);
+    if (!result) {
+      return {
+        errors: {
+          postcode: "That doesn't look like a real UK postcode — check it?",
+        },
+      };
+    }
+    geo = {
+      postcode: result.postcode,
+      latitude: result.latitude,
+      longitude: result.longitude,
+      geoDistrict: result.district,
+    };
+  }
+
   const updated = await prisma.company.update({
     where: { id: admin.companyId },
     data: {
@@ -104,14 +138,7 @@ export async function saveCompanySettings(
       payoutJob: d.payoutJob,
       acceptsBusinessPartners: d.acceptsBusinessPartners,
       acceptsAmbassadors: d.acceptsAmbassadors,
-      // Only written when the form sent them (ambassadors toggled on);
-      // otherwise the stored rates survive the round-trip.
-      ...(d.ambassadorPayoutAppointment !== undefined
-        ? { ambassadorPayoutAppointment: d.ambassadorPayoutAppointment }
-        : {}),
-      ...(d.ambassadorPayoutJob !== undefined
-        ? { ambassadorPayoutJob: d.ambassadorPayoutJob }
-        : {}),
+      ...(geo ?? {}),
       services,
     },
     select: { slug: true },

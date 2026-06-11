@@ -1,35 +1,9 @@
 // Pure functions for payout calculation, derived from referral state.
-// Payout amounts come from the Company row (each tenant sets their own),
-// with separate rates depending on whether the referrer is a
-// BUSINESS_PARTNER or an AMBASSADOR.
+// Payout amounts come from the Company row (each tenant sets their own).
+// One rate for every referrer type — businesses and ambassadors earn
+// the same, because the referral is worth the same to the company.
 
-import type { Company, MembershipRole, Payout, Referral } from "@prisma/client";
-
-export type PayoutRateCompany = Pick<
-  Company,
-  | "payoutAppointment"
-  | "payoutJob"
-  | "ambassadorPayoutAppointment"
-  | "ambassadorPayoutJob"
->;
-
-// The per-referral rates that apply to a given referrer role at a given
-// company. COMPANY_ADMINs don't earn payouts but get business rates if
-// ever asked (e.g. an admin testing the refer form on themselves).
-export function ratesForRole(
-  company: PayoutRateCompany,
-  role: MembershipRole,
-): { appointment: number; job: number; total: number } {
-  const appointment = Number(
-    role === "AMBASSADOR"
-      ? company.ambassadorPayoutAppointment
-      : company.payoutAppointment,
-  );
-  const job = Number(
-    role === "AMBASSADOR" ? company.ambassadorPayoutJob : company.payoutJob,
-  );
-  return { appointment, job, total: appointment + job };
-}
+import type { Company, Payout, Referral } from "@prisma/client";
 
 export type PayoutSummary = {
   pendingTotal: number;
@@ -63,16 +37,13 @@ export function summarisePayouts(payouts: Payout[]): PayoutSummary {
   };
 }
 
-// Given a referral's new status, the owning company's payout rules and
-// the referrer's role at that company, return the FULL set of payouts
-// that should exist. Callers diff against the existing rows so reruns
-// don't double-pay.
+// Given a referral's new status and the owning company's payout rules,
+// return the FULL set of payouts that should exist. Callers diff against
+// the existing rows so reruns don't double-pay.
 export function expectedPayoutsForStatus(
   status: Referral["status"],
-  company: PayoutRateCompany,
-  referrerRole: MembershipRole = "BUSINESS_PARTNER",
+  company: Pick<Company, "payoutAppointment" | "payoutJob">,
 ): { type: "APPOINTMENT" | "JOB"; amount: number }[] {
-  const rates = ratesForRole(company, referrerRole);
   const out: { type: "APPOINTMENT" | "JOB"; amount: number }[] = [];
   if (
     status === "APPOINTMENT_BOOKED" ||
@@ -80,10 +51,13 @@ export function expectedPayoutsForStatus(
     status === "JOB_SOLD" ||
     status === "JOB_INSTALLED"
   ) {
-    out.push({ type: "APPOINTMENT", amount: rates.appointment });
+    out.push({
+      type: "APPOINTMENT",
+      amount: Number(company.payoutAppointment),
+    });
   }
   if (status === "JOB_SOLD" || status === "JOB_INSTALLED") {
-    out.push({ type: "JOB", amount: rates.job });
+    out.push({ type: "JOB", amount: Number(company.payoutJob) });
   }
   return out;
 }

@@ -120,19 +120,25 @@ model Company {
   currencySymbol     String   @default("£")
 
   // Which referrer types the public /<slug>/signup page accepts. Both on
-  // by default — a company that only wants trade businesses (or only
+  // by default — a company that only wants businesses (or only
   // past-customer ambassadors) can switch one off in settings. The
   // signup action validates against these server-side, so a crafted POST
   // can't create a disallowed membership type.
+  //
+  // NB: ambassadors earn the SAME payout rates as businesses — Joe's
+  // call (2026-06-11): the referral is worth the same to the company
+  // either way, and a lower ambassador rate just reads as an insult.
   acceptsBusinessPartners Boolean @default(true)
   acceptsAmbassadors      Boolean @default(true)
 
-  // Ambassador payout rates — deliberately separate from (and defaulting
-  // lower than) the business-partner rates above. An ambassador is a
-  // past customer or friend referring occasionally, not a tradesman with
-  // a pipeline; companies typically pay them less per referral.
-  ambassadorPayoutAppointment Decimal @db.Decimal(10, 2) @default(25)
-  ambassadorPayoutJob         Decimal @db.Decimal(10, 2) @default(100)
+  // Location for the "programmes near you" suggestions on partner
+  // dashboards. Postcode is what the admin types; lat/lng + district
+  // (e.g. "Sunderland") are geocoded server-side (postcodes.io) at save
+  // time so distance maths never needs a network call at render time.
+  postcode    String?
+  latitude    Float?
+  longitude   Float?
+  geoDistrict String?
 
   // Subscription / status
   status             CompanyStatus @default(TRIAL)
@@ -261,6 +267,14 @@ model User {
   fullName     String?
   phone        String?
   businessName String?
+
+  // Optional home-base for "programmes near you" suggestions. Set from
+  // dashboard account settings; geocoded like Company.postcode. When
+  // null, suggestions fall back to the location of the partner's first
+  // company (most partners are local to whoever recruited them).
+  postcode  String?
+  latitude  Float?
+  longitude Float?
 
   // Bank details for partner payouts (PARTNER only). Captured in dashboard
   // settings rather than at signup so it doesn't slow the signup flow.

@@ -185,7 +185,6 @@ export async function partnerSignupAction(
     sendPartnerWelcomeEmail(
       { email: user.email, fullName: user.fullName },
       company,
-      data.referrerType,
     ),
   ]);
 
@@ -275,7 +274,6 @@ export async function joinProgrammeAction(
     sendPartnerWelcomeEmail(
       { email: user.email, fullName: user.fullName },
       company,
-      parsed.data.referrerType,
     ),
   ]);
 

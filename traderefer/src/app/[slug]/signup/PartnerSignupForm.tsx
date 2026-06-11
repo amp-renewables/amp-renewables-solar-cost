@@ -13,35 +13,30 @@ type ReferrerType = "BUSINESS_PARTNER" | "AMBASSADOR";
 
 // Radio-card picker for "what kind of referrer are you?". Rendered only
 // when the company accepts both types — otherwise the forms below emit a
-// hidden input for the single allowed type.
+// hidden input for the single allowed type. No per-card payout figures:
+// both types earn the same, and the headline already states it.
 function TypePicker({
   value,
   onChange,
-  businessTotal,
-  ambassadorTotal,
 }: {
   value: ReferrerType;
   onChange: (t: ReferrerType) => void;
-  businessTotal: string;
-  ambassadorTotal: string;
 }) {
   const options: {
     type: ReferrerType;
     title: string;
     blurb: string;
-    total: string;
   }[] = [
     {
       type: "BUSINESS_PARTNER",
-      title: "I run a trade business",
-      blurb: "Roofer, plumber, electrician — you meet customers on the job.",
-      total: businessTotal,
+      title: "I'm a business",
+      blurb:
+        "Tradesman, accountant, estate agent — anyone whose customers could use this.",
     },
     {
       type: "AMBASSADOR",
       title: "I'm referring as myself",
       blurb: "Past customer, friend or neighbour — no business needed.",
-      total: ambassadorTotal,
     },
   ];
 
@@ -68,9 +63,6 @@ function TypePicker({
             <span className="block text-xs text-slate-500 mt-1">
               {opt.blurb}
             </span>
-            <span className="block text-xs font-semibold text-brand mt-2">
-              Earn up to {opt.total} per customer
-            </span>
           </button>
         );
       })}
@@ -83,15 +75,11 @@ export function PartnerSignupForm({
   inviteToken,
   allowBusiness,
   allowAmbassador,
-  businessTotal,
-  ambassadorTotal,
 }: {
   slug: string;
   inviteToken?: string | null;
   allowBusiness: boolean;
   allowAmbassador: boolean;
-  businessTotal: string;
-  ambassadorTotal: string;
 }) {
   const [state, formAction, pending] = useActionState(
     partnerSignupAction,
@@ -115,14 +103,7 @@ export function PartnerSignupForm({
         </div>
       )}
 
-      {showPicker && (
-        <TypePicker
-          value={type}
-          onChange={setType}
-          businessTotal={businessTotal}
-          ambassadorTotal={ambassadorTotal}
-        />
-      )}
+      {showPicker && <TypePicker value={type} onChange={setType} />}
 
       <Field label="Your name" name="fullName" required error={state.errors?.fullName} />
       {type === "BUSINESS_PARTNER" && (
@@ -158,16 +139,12 @@ export function JoinProgrammeForm({
   inviteToken,
   allowBusiness,
   allowAmbassador,
-  businessTotal,
-  ambassadorTotal,
 }: {
   slug: string;
   companyName: string;
   inviteToken?: string | null;
   allowBusiness: boolean;
   allowAmbassador: boolean;
-  businessTotal: string;
-  ambassadorTotal: string;
 }) {
   const [state, formAction, pending] = useActionState(
     joinProgrammeAction,
@@ -191,14 +168,7 @@ export function JoinProgrammeForm({
         </div>
       )}
 
-      {showPicker && (
-        <TypePicker
-          value={type}
-          onChange={setType}
-          businessTotal={businessTotal}
-          ambassadorTotal={ambassadorTotal}
-        />
-      )}
+      {showPicker && <TypePicker value={type} onChange={setType} />}
 
       <button
         type="submit"

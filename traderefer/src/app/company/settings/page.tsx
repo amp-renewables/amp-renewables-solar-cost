@@ -116,14 +116,11 @@ export default async function CompanySettingsPage({
           heroSubheading: company.heroSubheading,
           primaryColor: company.primaryColor,
           accentColor: company.accentColor,
+          postcode: company.postcode,
           payoutAppointment: Number(company.payoutAppointment),
           payoutJob: Number(company.payoutJob),
           acceptsBusinessPartners: company.acceptsBusinessPartners,
           acceptsAmbassadors: company.acceptsAmbassadors,
-          ambassadorPayoutAppointment: Number(
-            company.ambassadorPayoutAppointment,
-          ),
-          ambassadorPayoutJob: Number(company.ambassadorPayoutJob),
           services: company.services,
         }}
       />

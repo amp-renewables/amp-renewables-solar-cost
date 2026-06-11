@@ -1,18 +1,15 @@
 import { notFound } from "next/navigation";
-import { requirePartner } from "@/lib/auth";
-import { getCurrentCompany, formatCompanyMoney } from "@/lib/company";
-import { ratesForRole } from "@/lib/payouts";
+import {
+  getCurrentCompany,
+  formatCompanyMoney,
+  payoutsForCompany,
+} from "@/lib/company";
 import { ReferForm } from "./ReferForm";
 
 export default async function ReferPage() {
-  const user = await requirePartner();
   const company = await getCurrentCompany();
   if (!company) notFound();
-  // Ambassadors see ambassador money, business partners see theirs.
-  const payouts = ratesForRole(
-    company,
-    user.role === "AMBASSADOR" ? "AMBASSADOR" : "BUSINESS_PARTNER",
-  );
+  const payouts = payoutsForCompany(company);
 
   return (
     <div className="max-w-2xl mx-auto">

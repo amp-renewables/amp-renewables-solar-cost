@@ -1,10 +1,15 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requirePartner } from "@/lib/auth";
-import { getCurrentCompany, formatCompanyMoney } from "@/lib/company";
+import {
+  getCurrentCompany,
+  formatCompanyMoney,
+  payoutsForCompany,
+} from "@/lib/company";
 import { platform, formatPrice } from "@/lib/platform";
-import { ratesForRole, summarisePayouts } from "@/lib/payouts";
+import { summarisePayouts } from "@/lib/payouts";
 import { StatusBadge } from "@/components/StatusBadge";
+import { NearbyProgrammes } from "./NearbyProgrammes";
 
 export default async function DashboardOverviewPage() {
   const user = await requirePartner();
@@ -42,10 +47,7 @@ export default async function DashboardOverviewPage() {
     },
   });
 
-  const payoutRules = ratesForRole(
-    company,
-    user.role === "AMBASSADOR" ? "AMBASSADOR" : "BUSINESS_PARTNER",
-  );
+  const payoutRules = payoutsForCompany(company);
 
   return (
     <div className="space-y-8">
@@ -188,6 +190,8 @@ export default async function DashboardOverviewPage() {
           </div>
         )}
       </section>
+
+      <NearbyProgrammes userId={user.id} currentCompanyId={user.companyId} />
     </div>
   );
 }
