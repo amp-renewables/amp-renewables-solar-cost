@@ -48,8 +48,9 @@ export default function TermsPage() {
 
           <h2>2. The service</h2>
           <p>
-            {platform.name} is a software-as-a-service platform that lets
-            businesses run their own referral programmes. Businesses
+            {platform.name}{" "}
+            is a software-as-a-service platform that lets businesses run
+            their own referral programmes. Businesses
             (&quot;Customers&quot;) subscribe and use the platform to
             recruit partners (tradesmen and former customers, &quot;Partners&quot;)
             who refer end customers. Partners use the platform free of

@@ -41,9 +41,9 @@ export default async function CompanyNetworkPage() {
       <div>
         <h1 className="text-2xl font-bold text-brand">Your referral network</h1>
         <p className="text-sm text-slate-600 mt-1">
-          Refer other businesses to {platform.name} and we&apos;ll knock 25%
-          off your subscription for each one that becomes a paying customer.
-          Refer 4 and it&apos;s free.
+          Refer other businesses to {platform.name}{" "}
+          and we&apos;ll knock 25% off your subscription for each one that
+          becomes a paying customer. Refer 4 and it&apos;s free.
         </p>
       </div>
 

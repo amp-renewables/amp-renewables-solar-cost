@@ -120,8 +120,9 @@ export default async function DashboardOverviewPage() {
           </h2>
           <p className="text-slate-300 text-sm leading-relaxed">
             {user.businessName ? `Set ${user.businessName} up on` : "Set up"}{" "}
-            {platform.name} and let other tradesmen send customers your way.
-            Same setup you&apos;re using here — branded landing page, partner
+            {platform.name}{" "}
+            and let other tradesmen send customers your way. Same setup
+            you&apos;re using here — branded landing page, partner
             dashboards, automatic payouts. {formatPrice(platform.pricing.monthly)}
             /month after a {platform.pricing.trialDays}-day free trial.
           </p>

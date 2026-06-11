@@ -87,7 +87,8 @@ export default function PrivacyPage() {
           <h2>3. Who&apos;s the data controller?</h2>
           <p>
             For account-level data (logins, billing, partner profiles),
-            {platform.name} is the data controller. For end-customer
+            {platform.name}{" "}
+            is the data controller. For end-customer
             referral data submitted by partners, the Customer business
             running the programme is the data controller — we act as
             their processor. If you&apos;re a customer who was referred to
