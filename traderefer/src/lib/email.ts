@@ -524,7 +524,7 @@ export async function sendCompanyWelcomeEmail(
         </tr>
         <tr>
           <td style="padding:6px 12px 6px 0;color:#888;vertical-align:top;">Partner signup link</td>
-          <td style="padding:6px 0;"><a href="${signupLink}" style="color:${platform.colors.primary};word-break:break-all;font-weight:500;">${esc(signupLink)}</a><br/><span style="color:#999;font-size:12px;">Send this to the tradesmen you want referrals from</span></td>
+          <td style="padding:6px 0;"><a href="${signupLink}" style="color:${platform.colors.primary};word-break:break-all;font-weight:500;">${esc(signupLink)}</a><br/><span style="color:#999;font-size:12px;">Send this to the tradesmen, past customers and contacts you want referrals from</span></td>
         </tr>
         <tr>
           <td style="padding:6px 12px 6px 0;color:#888;vertical-align:top;">Log in</td>
@@ -546,9 +546,9 @@ export async function sendCompanyWelcomeEmail(
 
       <h3 style="margin-top:28px;color:${platform.colors.primary};font-size:15px;">First steps</h3>
       <ol style="font-size:14px;color:#444;padding-left:20px;">
+        <li style="margin-bottom:8px;"><strong>Share your signup link</strong> with the tradesmen, past customers and contacts you want to refer customers from.</li>
         <li style="margin-bottom:8px;"><strong>Upload your logo and pick your brand colours</strong> — they'll show on your landing page and partner dashboards.</li>
         <li style="margin-bottom:8px;"><strong>Tune your payouts</strong> — set what you pay per appointment and per job sold.</li>
-        <li style="margin-bottom:8px;"><strong>Share your signup link</strong> with the tradesmen you want to refer customers from.</li>
       </ol>
 
       <p style="margin-top:24px;">
@@ -577,9 +577,9 @@ export async function sendCompanyWelcomeEmail(
       : null,
     ``,
     `FIRST STEPS`,
-    `1. Upload your logo and pick your brand colours`,
-    `2. Tune your payouts (per appointment, per job sold)`,
-    `3. Share your signup link with tradesmen`,
+    `1. Share your signup link with the tradesmen, past customers and contacts you want to refer customers from`,
+    `2. Upload your logo and pick your brand colours`,
+    `3. Tune your payouts (per appointment, per job sold)`,
     ``,
     `Open your settings: ${settingsLink}`,
     ``,
