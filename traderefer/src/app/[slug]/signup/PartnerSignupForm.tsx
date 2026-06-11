@@ -108,9 +108,9 @@ export function PartnerSignupForm({
       <Field label="Your name" name="fullName" required error={state.errors?.fullName} />
       {type === "BUSINESS_PARTNER" && (
         <Field
-          label="Business name (optional)"
+          label="Business name"
           name="businessName"
-          hint="Leave blank if you're referring as yourself"
+          required
           error={state.errors?.businessName}
         />
       )}

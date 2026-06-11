@@ -17,23 +17,34 @@ import {
   sendPartnerWelcomeEmail,
 } from "@/lib/email";
 
-const SignupSchema = z.object({
-  slug: z.string().min(1),
-  // Which kind of referrer they're signing up as. The form only offers
-  // the types the company accepts; validated again server-side below so
-  // a hand-rolled POST can't sneak a disallowed type in.
-  referrerType: z.enum(["BUSINESS_PARTNER", "AMBASSADOR"]),
-  fullName: z.string().trim().min(2, "Please enter your full name"),
-  // Optional — past customers and friends refer as themselves, not as a
-  // business. Empty string is normalised to undefined below.
-  businessName: z.string().trim().optional(),
-  email: z.string().trim().email("Please enter a valid email"),
-  phone: z.string().trim().min(7, "Please enter a valid phone number"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-  // Optional bulk-invite attribution token. Bad/stale tokens are
-  // silently ignored — attribution must never block a signup.
-  inviteToken: z.string().trim().optional(),
-});
+const SignupSchema = z
+  .object({
+    slug: z.string().min(1),
+    // Which kind of referrer they're signing up as. The form only offers
+    // the types the company accepts; validated again server-side below so
+    // a hand-rolled POST can't sneak a disallowed type in.
+    referrerType: z.enum(["BUSINESS_PARTNER", "AMBASSADOR"]),
+    fullName: z.string().trim().min(2, "Please enter your full name"),
+    // Required for businesses (they've explicitly picked "I'm a
+    // business" on the type cards), never collected for ambassadors —
+    // enforced in the refinement below.
+    businessName: z.string().trim().optional(),
+    email: z.string().trim().email("Please enter a valid email"),
+    phone: z.string().trim().min(7, "Please enter a valid phone number"),
+    password: z.string().min(8, "Password must be at least 8 characters"),
+    // Optional bulk-invite attribution token. Bad/stale tokens are
+    // silently ignored — attribution must never block a signup.
+    inviteToken: z.string().trim().optional(),
+  })
+  .superRefine((d, ctx) => {
+    if (d.referrerType === "BUSINESS_PARTNER" && !d.businessName) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["businessName"],
+        message: "Please enter your business name",
+      });
+    }
+  });
 
 export type PartnerSignupState = {
   errors?: Record<string, string>;
