@@ -98,6 +98,7 @@ export function SettingsForm({ company }: Props) {
             step="0.01"
             defaultValue={String(company.payoutAppointment)}
             required
+            hint="Set to 0 if you only want to pay for sold jobs — your pages and emails adapt automatically."
             error={state.errors?.payoutAppointment}
           />
           <Field

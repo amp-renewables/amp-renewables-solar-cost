@@ -26,18 +26,30 @@ export const DEFAULT_SMS_TEMPLATE =
 export const DEFAULT_EMAIL_SUBJECT =
   "Earn {{payoutTotal}} per customer you refer to {{companyName}}";
 
-export const DEFAULT_EMAIL_TEMPLATE =
-  "Hi {{firstName}},\n\n" +
-  "{{senderName}} here from {{companyName}}. We've set up a referral " +
-  "programme for the trades and contacts we work with — and we'd like " +
-  "you in it.\n\n" +
-  "The deal:\n" +
-  "- {{payoutAppointment}} when a customer you refer books an appointment\n" +
-  "- {{payoutJob}} more when the job sells\n" +
-  "- Paid by bank transfer, tracked properly, no chasing\n\n" +
-  "Sign up takes a minute:\n{{inviteUrl}}\n\n" +
-  "Any questions, just reply.\n\n" +
-  "{{senderName}}\n{{companyName}}";
+// The default deal bullets adapt to the company's rates — a company
+// that only pays for sold jobs shouldn't open with a "£0 when an
+// appointment books" line. Admins can still edit freely before sending.
+export function defaultEmailTemplate(
+  company: Pick<Company, "payoutAppointment">,
+): string {
+  const dealBullets =
+    Number(company.payoutAppointment) > 0
+      ? "- {{payoutAppointment}} when a customer you refer books an appointment\n" +
+        "- {{payoutJob}} more when the job sells\n"
+      : "- {{payoutJob}} for every customer you refer whose job sells\n";
+  return (
+    "Hi {{firstName}},\n\n" +
+    "{{senderName}} here from {{companyName}}. We've set up a referral " +
+    "programme for the trades and contacts we work with — and we'd like " +
+    "you in it.\n\n" +
+    "The deal:\n" +
+    dealBullets +
+    "- Paid by bank transfer, tracked properly, no chasing\n\n" +
+    "Sign up takes a minute:\n{{inviteUrl}}\n\n" +
+    "Any questions, just reply.\n\n" +
+    "{{senderName}}\n{{companyName}}"
+  );
+}
 
 export const INVITE_PLACEHOLDERS: Array<{ token: string; description: string }> = [
   { token: "{{firstName}}", description: "Recipient's first name ('there' if unknown)" },

@@ -6,7 +6,7 @@ import {
   DAILY_SEND_CAP,
   DEFAULT_SMS_TEMPLATE,
   DEFAULT_EMAIL_SUBJECT,
-  DEFAULT_EMAIL_TEMPLATE,
+  defaultEmailTemplate,
   INVITE_PLACEHOLDERS,
   sentInLast24h,
 } from "@/lib/invites";
@@ -88,7 +88,7 @@ export default async function CompanyInvitesPage() {
         defaults={{
           sms: DEFAULT_SMS_TEMPLATE,
           emailSubject: DEFAULT_EMAIL_SUBJECT,
-          emailBody: DEFAULT_EMAIL_TEMPLATE,
+          emailBody: defaultEmailTemplate(company),
         }}
         placeholders={INVITE_PLACEHOLDERS}
         senders={teamMembers.map((m) => ({

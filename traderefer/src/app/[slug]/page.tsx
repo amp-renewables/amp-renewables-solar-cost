@@ -80,7 +80,9 @@ export default async function CompanyLandingPage({
           </h1>
           <p className="text-lg text-emerald-100 max-w-2xl mx-auto mb-10">
             {company.heroSubheading ??
-              `A simple referral programme for roofers, electricians and other trades. Send a customer to ${company.name} — they book the appointment and pay you ${formatCompanyMoney(company, payouts.appointment)}. If the job sells, you earn another ${formatCompanyMoney(company, payouts.job)}.`}
+              (payouts.appointment > 0
+                ? `A simple referral programme for roofers, electricians and other trades. Send a customer to ${company.name} — they book the appointment and pay you ${formatCompanyMoney(company, payouts.appointment)}. If the job sells, you earn another ${formatCompanyMoney(company, payouts.job)}.`
+                : `A simple referral programme for roofers, electricians and other trades. Send a customer to ${company.name} — when their job sells, you earn ${formatCompanyMoney(company, payouts.job)}.`)}
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
@@ -114,12 +116,24 @@ export default async function CompanyLandingPage({
           <Step
             n={2}
             title="We book the appointment"
-            body={`${company.name} contacts the customer and books a free survey. You earn ${formatCompanyMoney(company, payouts.appointment)} the moment that appointment is confirmed.`}
+            body={
+              payouts.appointment > 0
+                ? `${company.name} contacts the customer and books a free survey. You earn ${formatCompanyMoney(company, payouts.appointment)} the moment that appointment is confirmed.`
+                : `${company.name} contacts the customer and books a free survey — no chasing, no quoting, nothing more for you to do.`
+            }
           />
           <Step
             n={3}
-            title="They go ahead — you get paid again"
-            body={`If the customer goes ahead with the install, you earn an additional ${formatCompanyMoney(company, payouts.job)}. Up to ${formatCompanyMoney(company, payouts.total)} per referred customer.`}
+            title={
+              payouts.appointment > 0
+                ? "They go ahead — you get paid again"
+                : "They go ahead — you get paid"
+            }
+            body={
+              payouts.appointment > 0
+                ? `If the customer goes ahead with the install, you earn an additional ${formatCompanyMoney(company, payouts.job)}. Up to ${formatCompanyMoney(company, payouts.total)} per referred customer.`
+                : `If the customer goes ahead with the install, you earn ${formatCompanyMoney(company, payouts.job)} — for every customer you refer.`
+            }
           />
         </div>
       </section>

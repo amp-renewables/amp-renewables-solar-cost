@@ -117,7 +117,11 @@ export async function sendNewReferralNotification(
 
       <p style="margin-top:32px;color:#999;font-size:12px;">
         Reply to this email to contact the partner directly.<br/>
-        Earnings on this referral: ${formatCompanyMoney(company, Number(company.payoutAppointment))} on appointment booked, ${formatCompanyMoney(company, Number(company.payoutJob))} on job sold.
+        Earnings on this referral: ${
+          Number(company.payoutAppointment) > 0
+            ? `${formatCompanyMoney(company, Number(company.payoutAppointment))} on appointment booked, ${formatCompanyMoney(company, Number(company.payoutJob))} on job sold.`
+            : `${formatCompanyMoney(company, Number(company.payoutJob))} on job sold.`
+        }
       </p>
     </div>
   `;
@@ -236,6 +240,9 @@ export async function sendPartnerWelcomeEmail(
   }
 
   const firstName = partner.fullName?.trim().split(/\s+/)[0] || "there";
+  // A zero rate means the company doesn't pay for that milestone — the
+  // deal table only lists milestones that actually pay.
+  const hasAppointment = Number(company.payoutAppointment) > 0;
   const appointment = formatCompanyMoney(
     company,
     Number(company.payoutAppointment),
@@ -261,9 +268,13 @@ export async function sendPartnerWelcomeEmail(
         Here's the deal, in black and white:
       </p>
       <table style="border-collapse:collapse;font-size:14px;margin:20px 0;">
-        <tr><td style="padding:4px 16px 4px 0;color:#888;">Appointment booked</td><td style="padding:4px 0;font-weight:600;">${esc(appointment)}</td></tr>
+        ${
+          hasAppointment
+            ? `<tr><td style="padding:4px 16px 4px 0;color:#888;">Appointment booked</td><td style="padding:4px 0;font-weight:600;">${esc(appointment)}</td></tr>
         <tr><td style="padding:4px 16px 4px 0;color:#888;">Job sells</td><td style="padding:4px 0;font-weight:600;">${esc(job)} more</td></tr>
-        <tr><td style="padding:4px 16px 4px 0;color:#888;">Per customer</td><td style="padding:4px 0;font-weight:600;color:${company.primaryColor};">up to ${esc(total)}</td></tr>
+        <tr><td style="padding:4px 16px 4px 0;color:#888;">Per customer</td><td style="padding:4px 0;font-weight:600;color:${company.primaryColor};">up to ${esc(total)}</td></tr>`
+            : `<tr><td style="padding:4px 16px 4px 0;color:#888;">Job sells</td><td style="padding:4px 0;font-weight:600;color:${company.primaryColor};">${esc(job)}</td></tr>`
+        }
       </table>
       <p style="color:#444;line-height:1.5;">
         Two things to do now:
@@ -297,9 +308,13 @@ export async function sendPartnerWelcomeEmail(
     ``,
     `You're now a referral partner for ${company.name}. The deal:`,
     ``,
-    `Appointment booked:  ${appointment}`,
-    `Job sells:           ${job} more`,
-    `Per customer:        up to ${total}`,
+    ...(hasAppointment
+      ? [
+          `Appointment booked:  ${appointment}`,
+          `Job sells:           ${job} more`,
+          `Per customer:        up to ${total}`,
+        ]
+      : [`Job sells:           ${job}`]),
     ``,
     `Two things to do now:`,
     `1. Send your first referral — name, mobile and postcode is all it takes: ${referLink}`,
