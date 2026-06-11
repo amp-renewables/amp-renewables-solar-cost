@@ -298,7 +298,7 @@ export default async function CompanyOverviewPage() {
                   <tr key={r.id}>
                     <td className="px-4 py-3 font-medium">{r.customerName}</td>
                     <td className="px-4 py-3 text-slate-600">
-                      {r.partner.businessName}
+                      {r.partner.businessName || r.partner.fullName}
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={r.status} />

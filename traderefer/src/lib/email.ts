@@ -80,7 +80,7 @@ export async function sendNewReferralNotification(
 
   const html = `
     <div style="font-family:system-ui,sans-serif;color:#222;max-width:600px;">
-      <h2 style="color:${company.primaryColor};margin-bottom:4px;">New referral from ${esc(partner.businessName ?? "")}</h2>
+      <h2 style="color:${company.primaryColor};margin-bottom:4px;">New referral from ${esc(partner.businessName ?? partner.fullName ?? "a partner")}</h2>
       <p style="color:#666;margin-top:0;">${esc(partner.fullName ?? "A partner")} has just submitted a new customer referral to <strong>${esc(company.name)}</strong>.</p>
 
       <h3 style="margin-top:28px;color:${company.primaryColor};">Customer</h3>
@@ -103,7 +103,7 @@ export async function sendNewReferralNotification(
 
       <h3 style="margin-top:28px;color:${company.primaryColor};">Partner (referrer)</h3>
       <table style="border-collapse:collapse;font-size:14px;">
-        <tr><td style="padding:4px 12px 4px 0;color:#888;">Business</td><td style="padding:4px 0;font-weight:500;">${esc(partner.businessName ?? "")}</td></tr>
+        <tr><td style="padding:4px 12px 4px 0;color:#888;">Business</td><td style="padding:4px 0;font-weight:500;">${esc(partner.businessName ?? "(individual referrer)")}</td></tr>
         <tr><td style="padding:4px 12px 4px 0;color:#888;">Contact</td><td style="padding:4px 0;">${esc(partner.fullName ?? "")}</td></tr>
         <tr><td style="padding:4px 12px 4px 0;color:#888;">Email</td><td style="padding:4px 0;"><a href="mailto:${esc(partner.email)}" style="color:${company.primaryColor};">${esc(partner.email)}</a></td></tr>
         ${
@@ -123,7 +123,7 @@ export async function sendNewReferralNotification(
   `;
 
   const text = [
-    `New referral from ${partner.businessName ?? ""} for ${company.name}`,
+    `New referral from ${partner.businessName ?? partner.fullName ?? "a partner"} for ${company.name}`,
     `${partner.fullName ?? "A partner"} has just submitted a new customer referral.`,
     ``,
     `CUSTOMER`,
@@ -135,7 +135,7 @@ export async function sendNewReferralNotification(
     referral.notes ? `Notes:    ${referral.notes}` : null,
     ``,
     `PARTNER (REFERRER)`,
-    `Business: ${partner.businessName ?? ""}`,
+    `Business: ${partner.businessName ?? "(individual referrer)"}`,
     `Contact:  ${partner.fullName ?? ""}`,
     `Email:    ${partner.email}`,
     partner.phone ? `Phone:    ${partner.phone}` : null,
@@ -176,7 +176,7 @@ export async function sendNewPartnerSignupNotification(
       <p style="color:#666;margin-top:0;">A new tradesman has just registered for the ${esc(company.name)} referral programme on ${esc(platform.name)}.</p>
 
       <table style="border-collapse:collapse;font-size:14px;margin-top:20px;">
-        <tr><td style="padding:4px 12px 4px 0;color:#888;">Business</td><td style="padding:4px 0;font-weight:500;">${esc(partner.businessName ?? "")}</td></tr>
+        <tr><td style="padding:4px 12px 4px 0;color:#888;">Business</td><td style="padding:4px 0;font-weight:500;">${esc(partner.businessName ?? "(individual referrer)")}</td></tr>
         <tr><td style="padding:4px 12px 4px 0;color:#888;">Contact</td><td style="padding:4px 0;">${esc(partner.fullName ?? "")}</td></tr>
         <tr><td style="padding:4px 12px 4px 0;color:#888;">Email</td><td style="padding:4px 0;"><a href="mailto:${esc(partner.email)}" style="color:${company.primaryColor};">${esc(partner.email)}</a></td></tr>
         ${
@@ -193,7 +193,7 @@ export async function sendNewPartnerSignupNotification(
   const text = [
     `New partner signed up for ${company.name}`,
     ``,
-    `Business: ${partner.businessName ?? ""}`,
+    `Business: ${partner.businessName ?? "(individual referrer)"}`,
     `Contact:  ${partner.fullName ?? ""}`,
     `Email:    ${partner.email}`,
     partner.phone ? `Phone:    ${partner.phone}` : null,

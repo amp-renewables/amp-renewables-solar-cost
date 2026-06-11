@@ -135,7 +135,7 @@ export default async function CompanyPayoutsPage({
               return (
               <tr key={p.id}>
                 <td className="px-4 py-3 font-medium">
-                  {partner.businessName}
+                  {partner.businessName || partner.fullName}
                 </td>
                 <td className="px-4 py-3 text-slate-600">
                   {p.referral.customerName}

@@ -30,7 +30,12 @@ export function PartnerSignupForm({
       )}
 
       <Field label="Your name" name="fullName" required error={state.errors?.fullName} />
-      <Field label="Business name" name="businessName" required error={state.errors?.businessName} />
+      <Field
+        label="Business name (optional)"
+        name="businessName"
+        hint="Leave blank if you're referring as yourself — past customers welcome"
+        error={state.errors?.businessName}
+      />
       <Field label="Email" name="email" type="email" required error={state.errors?.email} />
       <Field label="Phone" name="phone" type="tel" required error={state.errors?.phone} />
       <Field label="Password" name="password" type="password" required hint="At least 8 characters" error={state.errors?.password} />

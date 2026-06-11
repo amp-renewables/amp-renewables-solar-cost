@@ -17,7 +17,13 @@ function fillTemplate(
 ): string {
   return body
     .replaceAll("{{partnerName}}", partner.fullName || "")
-    .replaceAll("{{businessName}}", partner.businessName || "")
+    // Individual referrers have no business — fall back to their own
+    // name so "It's {{partnerName}} from {{businessName}}" never renders
+    // a dangling "from ". Partners copy-edit these before sending anyway.
+    .replaceAll(
+      "{{businessName}}",
+      partner.businessName || partner.fullName || "",
+    )
     .replaceAll("{{companyName}}", company.name)
     .replaceAll("{{supportPhone}}", company.contactPhone || "")
     .replaceAll("{{supportEmail}}", company.contactEmail)

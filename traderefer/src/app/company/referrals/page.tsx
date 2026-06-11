@@ -169,7 +169,7 @@ export default async function CompanyReferralsPage({
                   </div>
                 </td>
                 <td className="px-4 py-3 hidden sm:table-cell text-slate-600">
-                  {r.partner.businessName}
+                  {r.partner.businessName || r.partner.fullName}
                 </td>
                 <td className="px-4 py-3 hidden md:table-cell text-slate-600 text-xs">
                   {r.services.join(", ")}

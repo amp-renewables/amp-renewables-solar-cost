@@ -46,8 +46,12 @@ export default async function CompanyPartnersPage() {
               return (
                 <tr key={p.id} className="align-top">
                   <td className="px-4 py-3">
-                    <div className="font-medium">{p.businessName}</div>
-                    <div className="text-xs text-slate-500">{p.fullName}</div>
+                    <div className="font-medium">
+                      {p.businessName || p.fullName}
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      {p.businessName ? p.fullName : "Individual referrer"}
+                    </div>
                   </td>
                   <td className="px-4 py-3 hidden sm:table-cell">
                     <div>

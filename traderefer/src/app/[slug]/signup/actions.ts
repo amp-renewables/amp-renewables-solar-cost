@@ -13,7 +13,9 @@ import {
 const SignupSchema = z.object({
   slug: z.string().min(1),
   fullName: z.string().trim().min(2, "Please enter your full name"),
-  businessName: z.string().trim().min(2, "Please enter your business name"),
+  // Optional — past customers and friends refer as themselves, not as a
+  // business. Empty string is normalised to undefined below.
+  businessName: z.string().trim().optional(),
   email: z.string().trim().email("Please enter a valid email"),
   phone: z.string().trim().min(7, "Please enter a valid phone number"),
   password: z.string().min(8, "Password must be at least 8 characters"),
@@ -34,7 +36,9 @@ export async function partnerSignupAction(
   const parsed = SignupSchema.safeParse({
     slug: formData.get("slug"),
     fullName: formData.get("fullName"),
-    businessName: formData.get("businessName"),
+    // Optional field: absent/empty → undefined so Zod .optional() accepts
+    // it (same null-vs-undefined gotcha as the referral form).
+    businessName: formData.get("businessName") || undefined,
     email: formData.get("email"),
     phone: formData.get("phone"),
     password: formData.get("password"),
@@ -70,7 +74,7 @@ export async function partnerSignupAction(
       email,
       hashedPassword: hashed,
       fullName: data.fullName,
-      businessName: data.businessName,
+      businessName: data.businessName || null,
       phone: data.phone,
       role: "PARTNER",
       companyId: company.id,

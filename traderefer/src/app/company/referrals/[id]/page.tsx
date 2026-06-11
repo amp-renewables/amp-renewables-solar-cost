@@ -52,10 +52,14 @@ export default async function CompanyReferralDetailPage({
             <p className="text-slate-600 text-sm">
               Referred by{" "}
               <span className="font-medium">
-                {referral.partner.businessName}
-              </span>{" "}
-              ({referral.partner.fullName}) on{" "}
-              {referral.createdAt.toLocaleDateString("en-GB")}
+                {referral.partner.businessName || referral.partner.fullName}
+              </span>
+              {/* Only show the person in brackets when the headline name
+                  was a business — avoids "Dave Smith (Dave Smith)". */}
+              {referral.partner.businessName && referral.partner.fullName
+                ? ` (${referral.partner.fullName})`
+                : ""}{" "}
+              on {referral.createdAt.toLocaleDateString("en-GB")}
             </p>
           </div>
           <StatusBadge status={referral.status} />
@@ -298,8 +302,12 @@ export default async function CompanyReferralDetailPage({
 
           <Card title="Partner">
             <div className="text-sm space-y-1">
-              <div className="font-medium">{referral.partner.businessName}</div>
-              <div>{referral.partner.fullName}</div>
+              <div className="font-medium">
+                {referral.partner.businessName || referral.partner.fullName}
+              </div>
+              {referral.partner.businessName && (
+                <div>{referral.partner.fullName}</div>
+              )}
               <div>
                 <a
                   href={`mailto:${referral.partner.email}`}
