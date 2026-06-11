@@ -6,8 +6,11 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requirePartner } from "@/lib/auth";
 import { getCompanyById } from "@/lib/company";
-import { assertCompanyCanWrite } from "@/lib/stripe";
-import { sendNewReferralNotification } from "@/lib/email";
+import { companyWriteGate } from "@/lib/stripe";
+import {
+  sendNewReferralNotification,
+  sendLockedReferralNotification,
+} from "@/lib/email";
 
 const ReferralSchema = z.object({
   // Name + phone + postcode are the only required customer fields — a
@@ -51,7 +54,12 @@ export async function submitReferralAction(
   const user = await requirePartner();
   const company = await getCompanyById(user.companyId);
   if (!company) return { formError: "Company not found." };
-  assertCompanyCanWrite(company);
+  // Deliberately NOT write-gated: partners can keep submitting referrals
+  // to a lapsed company. The referral is stored as normal but the company
+  // gets a locked teaser email instead of the customer's details — real
+  // demand piling up is the strongest reason to reactivate. The company
+  // side stays read-locked until billing is sorted.
+  const gate = companyWriteGate(company);
 
   const services = formData.getAll("services").map(String).filter(Boolean);
   const validServiceSet = new Set(company.services);
@@ -121,22 +129,26 @@ export async function submitReferralAction(
     },
   });
   if (partner) {
-    await sendNewReferralNotification(
-      {
-        id: referral.id,
-        customerName: referral.customerName,
-        customerPhone: referral.customerPhone,
-        customerEmail: referral.customerEmail,
-        addressLine1: referral.addressLine1,
-        addressLine2: referral.addressLine2,
-        city: referral.city,
-        postcode: referral.postcode,
-        services: referral.services,
-        notes: referral.notes,
-      },
-      partner,
-      company,
-    );
+    if (gate.canWrite) {
+      await sendNewReferralNotification(
+        {
+          id: referral.id,
+          customerName: referral.customerName,
+          customerPhone: referral.customerPhone,
+          customerEmail: referral.customerEmail,
+          addressLine1: referral.addressLine1,
+          addressLine2: referral.addressLine2,
+          city: referral.city,
+          postcode: referral.postcode,
+          services: referral.services,
+          notes: referral.notes,
+        },
+        partner,
+        company,
+      );
+    } else {
+      await sendLockedReferralNotification(partner, company);
+    }
   }
 
   revalidatePath("/dashboard");

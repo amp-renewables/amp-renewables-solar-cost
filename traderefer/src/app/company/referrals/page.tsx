@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireCompanyAdmin } from "@/lib/auth";
+import { getCurrentCompany } from "@/lib/company";
+import { companyWriteGate } from "@/lib/stripe";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ALL_STATUSES, STATUS_LABELS } from "@/lib/status";
 import type { ReferralStatus } from "@prisma/client";
@@ -58,8 +60,30 @@ export default async function CompanyReferralsPage({
     }),
   ]);
 
+  // Lapsed accounts (expired trial / past due / cancelled) see that
+  // referrals exist — who sent them and when — but customer details
+  // stay locked behind reactivation. Matches the teaser email partners'
+  // submissions trigger while the account is paused.
+  const company = await getCurrentCompany();
+  const locked = company ? !companyWriteGate(company).canWrite : false;
+
   return (
     <div className="space-y-6">
+      {locked && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 flex items-center justify-between gap-3 flex-wrap">
+          <div className="text-sm text-amber-900">
+            <strong>Your account is paused.</strong> Referrals are still
+            coming in and nothing is lost — reactivate to see customer
+            details and pick them up.
+          </div>
+          <Link
+            href="/company/billing"
+            className="btn-primary rounded-lg px-4 py-2 text-sm font-medium whitespace-nowrap"
+          >
+            Reactivate →
+          </Link>
+        </div>
+      )}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-2xl font-bold text-brand">
           {showArchived ? "Archived referrals" : "All referrals"}
@@ -163,10 +187,18 @@ export default async function CompanyReferralsPage({
             {referrals.map((r) => (
               <tr key={r.id} className="align-top">
                 <td className="px-4 py-3">
-                  <div className="font-medium">{r.customerName}</div>
-                  <div className="text-xs text-slate-500">
-                    {r.customerPhone}
-                  </div>
+                  {locked ? (
+                    <div className="text-slate-400 italic text-sm">
+                      Locked — reactivate to view
+                    </div>
+                  ) : (
+                    <>
+                      <div className="font-medium">{r.customerName}</div>
+                      <div className="text-xs text-slate-500">
+                        {r.customerPhone}
+                      </div>
+                    </>
+                  )}
                 </td>
                 <td className="px-4 py-3 hidden sm:table-cell text-slate-600">
                   {r.partner.businessName || r.partner.fullName}

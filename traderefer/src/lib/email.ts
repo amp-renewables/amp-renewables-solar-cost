@@ -163,6 +163,83 @@ export async function sendNewReferralNotification(
   }
 }
 
+/**
+ * Sent INSTEAD of the full referral notification when the company's
+ * account is lapsed (expired trial, past due, or cancelled). Names the
+ * partner but deliberately withholds every customer detail — the
+ * referral is the reason to reactivate, so the value stays behind the
+ * billing page. Real demand is the best dunning email we can send.
+ */
+export async function sendLockedReferralNotification(
+  partner: Pick<PartnerPayload, "fullName" | "businessName">,
+  company: Pick<Company, "name" | "contactEmail">,
+): Promise<void> {
+  if (!resend) {
+    console.warn(
+      `[email] no RESEND_API_KEY — locked-referral notice for ${company.name} skipped`,
+    );
+    return;
+  }
+
+  const partnerDisplay =
+    partner.businessName || partner.fullName || "One of your partners";
+  const billingLink = `${APP_URL}/company/billing`;
+  const subject = `${partnerDisplay} just sent you a referral — reactivate to view it`;
+
+  const html = `
+    <div style="font-family:system-ui,sans-serif;color:#222;max-width:560px;">
+      <h2 style="color:${platform.colors.primary};margin-bottom:8px;">
+        A new referral is waiting for you
+      </h2>
+      <p style="color:#444;line-height:1.5;">
+        <strong>${esc(partnerDisplay)}</strong> has just sent a customer
+        referral to ${esc(company.name)}.
+      </p>
+      <p style="color:#444;line-height:1.5;">
+        Your ${platform.name} account is currently paused, so the
+        customer's details are locked. The referral is saved and waiting —
+        reactivate your account to see who they are and get in touch
+        while the lead is warm.
+      </p>
+      <p style="margin-top:24px;">
+        <a href="${billingLink}" style="background:${platform.colors.primary};color:#fff;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:500;display:inline-block;">Reactivate your account</a>
+      </p>
+      <p style="margin-top:28px;color:#999;font-size:12px;">
+        Your partners can keep sending referrals while your account is
+        paused — nothing is lost. Questions? Just reply to this email.
+      </p>
+    </div>
+  `;
+
+  const text = [
+    `A new referral is waiting for you`,
+    ``,
+    `${partnerDisplay} has just sent a customer referral to ${company.name}.`,
+    ``,
+    `Your ${platform.name} account is currently paused, so the customer's`,
+    `details are locked. The referral is saved and waiting — reactivate`,
+    `your account to see who they are and get in touch while the lead is warm.`,
+    ``,
+    `Reactivate: ${billingLink}`,
+    ``,
+    `Your partners can keep sending referrals while your account is paused —`,
+    `nothing is lost. Questions? Just reply to this email.`,
+  ].join("\n");
+
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: company.contactEmail,
+      replyTo: platform.supportEmail,
+      subject,
+      html,
+      text,
+    });
+  } catch (err) {
+    console.error("[email] locked-referral notice failed:", err);
+  }
+}
+
 export async function sendNewPartnerSignupNotification(
   partner: PartnerPayload,
   company: CompanyPayload,

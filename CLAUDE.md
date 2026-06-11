@@ -194,6 +194,17 @@ continuing to submit referrals.
 Exempt from the gate: the billing actions themselves (Checkout / Portal)
 must remain callable for users to escape PAST_DUE / CANCELLED.
 
+**Deliberate exception — partner referral submission** (`submitReferralAction`,
+since 2026-06-11): partners CAN submit referrals to a lapsed company.
+The referral is stored normally, but the company gets a locked teaser
+email (`sendLockedReferralNotification` — partner name only, no customer
+details, billing CTA) instead of the full notification. The company side
+is read-locked while lapsed: `/company`, `/company/referrals` and the
+referral detail page mask customer details behind a "reactivate" notice
+(check `companyWriteGate(company).canWrite` — the same gate, used for
+display). Real demand piling up is the dunning mechanism. Status changes
+remain hard-gated, so a lapsed company can't work referrals.
+
 ## Stripe webhook (`src/app/api/stripe/webhook/route.ts`)
 
 Source of truth for `Company.status` changes. Handles:

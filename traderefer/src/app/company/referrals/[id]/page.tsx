@@ -3,6 +3,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireCompanyAdmin } from "@/lib/auth";
 import { getCurrentCompany, formatCompanyMoney } from "@/lib/company";
+import { companyWriteGate } from "@/lib/stripe";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ALL_STATUSES, STATUS_LABELS } from "@/lib/status";
 import {
@@ -34,6 +35,57 @@ export default async function CompanyReferralDetailPage({
 
   const isArchived = Boolean(referral.archivedAt);
   const hasPaidPayouts = referral.payouts.some((p) => p.status === "PAID");
+
+  // Lapsed account: the referral exists and the partner is named, but
+  // every customer detail stays locked behind reactivation. The status
+  // actions are write-gated server-side anyway, so the controls are
+  // hidden rather than left to fail on submit.
+  const locked = !companyWriteGate(company).canWrite;
+  if (locked) {
+    const partnerDisplay =
+      referral.partner.businessName || referral.partner.fullName || "A partner";
+    return (
+      <div className="space-y-6 max-w-2xl">
+        <div>
+          <Link
+            href="/company/referrals"
+            className="text-sm text-slate-500 hover:underline"
+          >
+            ← All referrals
+          </Link>
+          <div className="flex items-start justify-between flex-wrap gap-3 mt-2">
+            <div>
+              <h1 className="text-2xl font-bold text-brand">
+                Referral from {partnerDisplay}
+              </h1>
+              <p className="text-slate-600 text-sm">
+                Sent {referral.createdAt.toLocaleDateString("en-GB")}
+              </p>
+            </div>
+            <StatusBadge status={referral.status} />
+          </div>
+        </div>
+
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6">
+          <h2 className="font-semibold text-amber-900 mb-2">
+            Customer details locked
+          </h2>
+          <p className="text-sm text-amber-900 mb-4">
+            Your account is paused, so this customer&apos;s name and
+            contact details are hidden. The referral is saved and waiting
+            — reactivate to see who they are and get in touch while the
+            lead is warm.
+          </p>
+          <Link
+            href="/company/billing"
+            className="btn-primary inline-block rounded-lg px-5 py-2.5 text-sm font-medium"
+          >
+            Reactivate your account →
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

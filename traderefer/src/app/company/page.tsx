@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireCompanyAdmin } from "@/lib/auth";
 import { getCurrentCompany, formatCompanyMoney } from "@/lib/company";
+import { companyWriteGate } from "@/lib/stripe";
 import { platform, formatPrice } from "@/lib/platform";
 import { getReferralStanding } from "@/lib/referral";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -10,6 +11,9 @@ export default async function CompanyOverviewPage() {
   const user = await requireCompanyAdmin();
   const company = await getCurrentCompany();
   if (!company) return null;
+  // Lapsed accounts keep their stats but customer identities are locked
+  // behind reactivation — same rule as the referrals list and detail.
+  const locked = !companyWriteGate(company).canWrite;
 
   const [
     totalReferrals,
@@ -299,7 +303,15 @@ export default async function CompanyOverviewPage() {
               <tbody className="divide-y divide-slate-100">
                 {recent.map((r) => (
                   <tr key={r.id}>
-                    <td className="px-4 py-3 font-medium">{r.customerName}</td>
+                    <td className="px-4 py-3 font-medium">
+                      {locked ? (
+                        <span className="text-slate-400 italic font-normal text-sm">
+                          Locked — reactivate to view
+                        </span>
+                      ) : (
+                        r.customerName
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-slate-600">
                       {r.partner.businessName || r.partner.fullName}
                     </td>
