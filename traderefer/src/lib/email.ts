@@ -1,10 +1,9 @@
-// Email notifications. Sends to NOTIFY_EMAIL (configured in env) whenever:
-//   - a new partner signs up
-//   - a partner submits a new referral
-//   - a new Company signs up to the TradeRefer platform (£99/mo customer)
+// Email notifications. Company-facing events (new partner signup, new
+// referral) go to that company's contactEmail; platform events (a new
+// Company signing up — a £99/mo customer) go to NOTIFY_EMAIL from env.
 //
-// Uses Resend (resend.com). If RESEND_API_KEY or NOTIFY_EMAIL aren't set the
-// helpers no-op, so the app works fine in dev without email configured.
+// Uses Resend (resend.com). If RESEND_API_KEY isn't set the helpers
+// no-op, so the app works fine in dev without email configured.
 //
 // All send calls swallow errors — a failing email must never block signup
 // or referral submission.
@@ -65,7 +64,12 @@ export async function sendNewReferralNotification(
   partner: PartnerPayload,
   company: CompanyPayload,
 ): Promise<void> {
-  if (!configured() || !resend || !NOTIFY_EMAIL) return;
+  if (!resend) {
+    console.warn(
+      `[email] no RESEND_API_KEY — new-referral notification for ${company.name} skipped`,
+    );
+    return;
+  }
 
   const adminLink = `${APP_URL}/company/referrals/${referral.id}`;
   const subject = `[${company.name}] New referral from ${
@@ -152,7 +156,10 @@ export async function sendNewReferralNotification(
   try {
     await resend.emails.send({
       from: FROM_EMAIL,
-      to: NOTIFY_EMAIL,
+      // The company whose referral this is — NOT the platform inbox.
+      // (Was NOTIFY_EMAIL until 2026-06-11, which silently worked while
+      // AMP was the only tenant because Joe read both inboxes.)
+      to: company.contactEmail,
       replyTo: partner.email,
       subject,
       html,
@@ -244,7 +251,12 @@ export async function sendNewPartnerSignupNotification(
   partner: PartnerPayload,
   company: CompanyPayload,
 ): Promise<void> {
-  if (!configured() || !resend || !NOTIFY_EMAIL) return;
+  if (!resend) {
+    console.warn(
+      `[email] no RESEND_API_KEY — new-partner notification for ${company.name} skipped`,
+    );
+    return;
+  }
 
   const adminLink = `${APP_URL}/company/partners`;
   const subject = `[${company.name}] New partner signup: ${
@@ -287,7 +299,8 @@ export async function sendNewPartnerSignupNotification(
   try {
     await resend.emails.send({
       from: FROM_EMAIL,
-      to: NOTIFY_EMAIL,
+      // The company gaining the partner — NOT the platform inbox.
+      to: company.contactEmail,
       replyTo: partner.email,
       subject,
       html,
