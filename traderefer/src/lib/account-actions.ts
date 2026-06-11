@@ -1,13 +1,37 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "./db";
 import {
   hashPassword,
+  landingPathForRole,
   requireUser,
+  setActiveMembership,
   verifyPassword,
 } from "./auth";
+
+// Org switcher in the nav. Value "platform" (superadmin only) clears the
+// active membership; anything else must be one of the user's membership
+// ids — setActiveMembership validates ownership and no-ops otherwise.
+export async function switchMembershipAction(formData: FormData) {
+  const raw = formData.get("membershipId");
+  const membershipId =
+    typeof raw === "string" && raw && raw !== "platform" ? raw : null;
+
+  const user = await setActiveMembership(membershipId);
+  if (!user) redirect("/login");
+
+  const target = membershipId
+    ? user.memberships.find((m) => m.id === membershipId)
+    : null;
+  redirect(
+    landingPathForRole(
+      target ? target.role : user.isSuperadmin ? "SUPERADMIN" : user.role,
+    ),
+  );
+}
 
 const ChangePasswordSchema = z
   .object({

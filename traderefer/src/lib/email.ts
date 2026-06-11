@@ -11,9 +11,10 @@
 
 import "server-only";
 import { Resend } from "resend";
-import type { Company } from "@prisma/client";
+import type { Company, MembershipRole } from "@prisma/client";
 import { platform } from "./platform";
 import { formatCompanyMoney } from "./company";
+import { ratesForRole } from "./payouts";
 
 const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
@@ -56,6 +57,8 @@ type CompanyPayload = Pick<
   | "primaryColor"
   | "payoutAppointment"
   | "payoutJob"
+  | "ambassadorPayoutAppointment"
+  | "ambassadorPayoutJob"
   | "currencySymbol"
   | "contactEmail"
 >;
@@ -227,6 +230,7 @@ export async function sendNewPartnerSignupNotification(
 export async function sendPartnerWelcomeEmail(
   partner: { email: string; fullName: string | null },
   company: CompanyPayload,
+  role: MembershipRole = "BUSINESS_PARTNER",
 ): Promise<void> {
   if (!resend) {
     console.warn(
@@ -236,15 +240,10 @@ export async function sendPartnerWelcomeEmail(
   }
 
   const firstName = partner.fullName?.trim().split(/\s+/)[0] || "there";
-  const appointment = formatCompanyMoney(
-    company,
-    Number(company.payoutAppointment),
-  );
-  const job = formatCompanyMoney(company, Number(company.payoutJob));
-  const total = formatCompanyMoney(
-    company,
-    Number(company.payoutAppointment) + Number(company.payoutJob),
-  );
+  const rates = ratesForRole(company, role);
+  const appointment = formatCompanyMoney(company, rates.appointment);
+  const job = formatCompanyMoney(company, rates.job);
+  const total = formatCompanyMoney(company, rates.total);
   const referLink = `${APP_URL}/dashboard/refer`;
   const settingsLink = `${APP_URL}/dashboard/settings`;
   const fromDisplay = company.name.replace(/["<>]/g, "");

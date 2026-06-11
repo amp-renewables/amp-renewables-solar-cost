@@ -93,19 +93,33 @@ export async function POST(request: Request) {
     if (last10.length === 10) {
       const partner = await prisma.user.findFirst({
         where: {
-          role: "PARTNER",
           phone: { contains: last10.slice(-9) },
+          memberships: {
+            some: { role: { in: ["BUSINESS_PARTNER", "AMBASSADOR"] } },
+          },
         },
         select: {
           fullName: true,
           businessName: true,
-          company: {
-            select: { name: true, contactEmail: true, primaryColor: true },
+          // Multi-org: a partner can refer to several companies. Route
+          // the text to their oldest programme — without message context
+          // there's no better signal, and the forward email shows the
+          // sender's number so the admin can redirect if it was meant
+          // for someone else.
+          memberships: {
+            where: { role: { in: ["BUSINESS_PARTNER", "AMBASSADOR"] } },
+            orderBy: { createdAt: "asc" },
+            take: 1,
+            select: {
+              company: {
+                select: { name: true, contactEmail: true, primaryColor: true },
+              },
+            },
           },
         },
       });
-      if (partner?.company) {
-        company = partner.company;
+      if (partner?.memberships[0]?.company) {
+        company = partner.memberships[0].company;
         senderName = partner.fullName ?? partner.businessName;
         senderContext = "Existing partner";
       }

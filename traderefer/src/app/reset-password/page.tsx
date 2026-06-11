@@ -16,7 +16,7 @@ export default async function ResetPasswordPage({
   searchParams: Promise<{ token?: string }>;
 }) {
   const user = await getSessionUser();
-  if (user) redirect(landingPathForRole(user.role));
+  if (user && user.role) redirect(landingPathForRole(user.role));
 
   const sp = await searchParams;
   const token = (sp.token ?? "").trim();

@@ -27,11 +27,15 @@ export default async function CompanyInvitesPage() {
     sentInLast24h(admin.companyId),
     // Everyone the batch can be "sent as" — the company's admin team.
     // Drives the From display name, Reply-To, and {{senderName}}.
-    prisma.user.findMany({
-      where: { companyId: admin.companyId, role: "COMPANY_ADMIN" },
-      orderBy: { createdAt: "asc" },
-      select: { id: true, fullName: true, email: true },
-    }),
+    prisma.membership
+      .findMany({
+        where: { companyId: admin.companyId, role: "COMPANY_ADMIN" },
+        orderBy: { createdAt: "asc" },
+        select: {
+          user: { select: { id: true, fullName: true, email: true } },
+        },
+      })
+      .then((rows) => rows.map((m) => m.user)),
   ]);
 
   const counts = {

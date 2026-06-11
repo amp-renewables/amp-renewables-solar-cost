@@ -15,12 +15,12 @@ export default async function PlatformCompaniesPage() {
     include: {
       _count: {
         select: {
-          users: true,
+          memberships: true,
           referrals: true,
         },
       },
-      users: {
-        where: { role: "PARTNER" },
+      memberships: {
+        where: { role: { in: ["BUSINESS_PARTNER", "AMBASSADOR"] } },
         select: { id: true },
       },
       referrals: {
@@ -37,7 +37,7 @@ export default async function PlatformCompaniesPage() {
   // Aggregate pending payouts per company in JS (small dataset; avoids
   // a second round-trip to Postgres).
   const rows = companies.map((c) => {
-    const partnerCount = c.users.length;
+    const partnerCount = c.memberships.length;
     const pendingPayouts = c.referrals
       .flatMap((r) => r.payouts)
       .reduce((sum, p) => sum + Number(p.amount), 0);

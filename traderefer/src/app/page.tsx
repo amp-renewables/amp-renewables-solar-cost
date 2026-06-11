@@ -6,7 +6,7 @@ import { Logo } from "@/components/Logo";
 
 export default async function HomePage() {
   const user = await getSessionUser();
-  if (user) redirect(landingPathForRole(user.role));
+  if (user && user.role) redirect(landingPathForRole(user.role));
 
   return (
     <div className="min-h-screen">

@@ -38,6 +38,9 @@ export async function loginAction(
   const { email, password } = parsed.data;
   const user = await prisma.user.findUnique({
     where: { email: email.toLowerCase() },
+    include: {
+      memberships: { orderBy: { createdAt: "asc" }, take: 1 },
+    },
   });
   if (!user) {
     return { formError: "Email or password is incorrect." };
@@ -47,6 +50,19 @@ export async function loginAction(
     return { formError: "Email or password is incorrect." };
   }
 
-  await createSession(user.id, user.role, user.companyId);
-  redirect(landingPathForRole(user.role));
+  // Land in the user's first (oldest) membership context; superadmins
+  // with no memberships land in platform context. The nav's org
+  // switcher handles everything beyond that.
+  const first = user.memberships[0] ?? null;
+  if (!first && !user.isSuperadmin) {
+    // No memberships at all — account exists but belongs nowhere.
+    // Shouldn't happen outside manual DB surgery; fail closed.
+    return {
+      formError:
+        "Your account isn't linked to any programme. Contact support.",
+    };
+  }
+
+  await createSession(user.id, first?.id ?? null);
+  redirect(landingPathForRole(first ? first.role : "SUPERADMIN"));
 }

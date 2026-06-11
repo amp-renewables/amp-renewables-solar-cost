@@ -6,7 +6,7 @@ import { ForgotPasswordForm } from "./ForgotPasswordForm";
 
 export default async function ForgotPasswordPage() {
   const user = await getSessionUser();
-  if (user) redirect(landingPathForRole(user.role));
+  if (user && user.role) redirect(landingPathForRole(user.role));
 
   return (
     <div className="min-h-screen flex flex-col">

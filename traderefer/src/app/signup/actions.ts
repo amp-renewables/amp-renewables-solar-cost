@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { createSession, hashPassword } from "@/lib/auth";
+import { createSession, hashPassword, verifyPassword } from "@/lib/auth";
 import { findAvailableSlug } from "@/lib/company";
 import { platform } from "@/lib/platform";
 import {
@@ -56,9 +56,23 @@ export async function companySignupAction(
   const data = parsed.data;
   const email = data.email.toLowerCase();
 
+  // Multi-org: an email that already has an account (say, a partner
+  // referring to someone else's programme) can start their OWN company
+  // on the same login — provided the password they typed matches their
+  // existing one, which proves they own the account rather than someone
+  // hijacking a known email.
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
-    return { formError: "An account already exists for that email address." };
+    const ok = await verifyPassword(
+      data.password,
+      existingUser.hashedPassword,
+    );
+    if (!ok) {
+      return {
+        formError:
+          "An account already exists for that email. Enter your existing password to add a company to it, or use a different email.",
+      };
+    }
   }
 
   const slug = await findAvailableSlug(data.companyName);
@@ -66,7 +80,9 @@ export async function companySignupAction(
     Date.now() + platform.pricing.trialDays * 24 * 60 * 60 * 1000,
   );
 
-  const hashed = await hashPassword(data.password);
+  const hashed = existingUser
+    ? existingUser.hashedPassword
+    : await hashPassword(data.password);
 
   // Resolve the optional referrer. Looked up server-side so the form
   // value can't link to a company that doesn't exist. Self-referral is
@@ -83,7 +99,8 @@ export async function companySignupAction(
   const referredByCompanyId =
     referrer && referrer.slug !== slug ? referrer.id : null;
 
-  const { user, company } = await prisma.$transaction(async (tx) => {
+  const { user, company, membership } = await prisma.$transaction(
+    async (tx) => {
     const company = await tx.company.create({
       data: {
         slug,
@@ -100,15 +117,23 @@ export async function companySignupAction(
       },
     });
 
-    const user = await tx.user.create({
+    const user = existingUser
+      ? existingUser
+      : await tx.user.create({
+          data: {
+            email,
+            hashedPassword: hashed,
+            fullName: data.ownerName,
+            businessName: data.companyName,
+            phone: data.phone,
+          },
+        });
+
+    const membership = await tx.membership.create({
       data: {
-        email,
-        hashedPassword: hashed,
-        fullName: data.ownerName,
-        businessName: data.companyName,
-        phone: data.phone,
-        role: "COMPANY_ADMIN",
+        userId: user.id,
         companyId: company.id,
+        role: "COMPANY_ADMIN",
       },
     });
 
@@ -140,8 +165,9 @@ export async function companySignupAction(
       ],
     });
 
-    return { user, company };
-  });
+    return { user, company, membership };
+    },
+  );
 
   // Both emails are fire-and-forget — a failing send must never block signup.
   // Run them in parallel so we don't add 2× round-trip latency to the flow.
@@ -150,7 +176,10 @@ export async function companySignupAction(
     sendCompanyWelcomeEmail(company, data.ownerName),
   ]);
 
-  await createSession(user.id, user.role, user.companyId);
+  // Sign them in acting as the new company's admin. For an existing
+  // user this replaces their current session context — they can switch
+  // back to their other memberships from the nav.
+  await createSession(user.id, membership.id);
   // Land new signups on /company/settings — they need to upload a logo,
   // tune payouts, and grab their signup link. Dropping them on /company
   // (an empty referrals dashboard) is disorienting on day one.

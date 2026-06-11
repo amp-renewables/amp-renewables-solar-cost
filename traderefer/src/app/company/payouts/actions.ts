@@ -77,21 +77,25 @@ export async function revealPartnerBankDetailsAction(
 ): Promise<RevealResult> {
   const admin = await requireCompanyAdmin();
 
-  const partner = await prisma.user.findUnique({
-    where: { id: partnerUserId },
+  const partner = await prisma.user.findFirst({
+    where: {
+      id: partnerUserId,
+      // Tenancy check via membership: the target must refer for THIS
+      // admin's company. Blocks cross-tenant reveals from crafted calls.
+      memberships: {
+        some: {
+          companyId: admin.companyId,
+          role: { in: ["BUSINESS_PARTNER", "AMBASSADOR"] },
+        },
+      },
+    },
     select: {
-      companyId: true,
-      role: true,
       bankSortCode: true,
       bankAccountNumber: true,
     },
   });
 
-  if (
-    !partner ||
-    partner.companyId !== admin.companyId ||
-    partner.role !== "PARTNER"
-  ) {
+  if (!partner) {
     return { ok: false, error: "Partner not found." };
   }
 

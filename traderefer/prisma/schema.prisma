@@ -18,10 +18,25 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// DEPRECATED — superseded by Membership.role + User.isSuperadmin.
+// Still present because the User.role column hasn't been dropped yet
+// (kept through the multi-org migration so a half-deployed build can't
+// crash on a missing column). Nothing should READ this anymore.
 enum Role {
   SUPERADMIN     // TradeRefer platform admin
   COMPANY_ADMIN  // Owns/runs a Company that pays £99/mo
   PARTNER        // Refers customers under a Company
+}
+
+// What a user IS at a given company. A user can hold one membership per
+// company, and memberships at any number of companies — that's the whole
+// point of the multi-org model. "Sarah refers to AMP as Smith Roofing
+// and to a Manchester installer as herself" is two Membership rows on
+// one User.
+enum MembershipRole {
+  COMPANY_ADMIN    // runs the company's programme
+  BUSINESS_PARTNER // a trade business referring customers (full payout rates)
+  AMBASSADOR       // an individual — past customer, friend (ambassador rates)
 }
 
 enum CompanyStatus {
@@ -104,6 +119,21 @@ model Company {
   payoutJob          Decimal  @db.Decimal(10, 2) @default(250)
   currencySymbol     String   @default("£")
 
+  // Which referrer types the public /<slug>/signup page accepts. Both on
+  // by default — a company that only wants trade businesses (or only
+  // past-customer ambassadors) can switch one off in settings. The
+  // signup action validates against these server-side, so a crafted POST
+  // can't create a disallowed membership type.
+  acceptsBusinessPartners Boolean @default(true)
+  acceptsAmbassadors      Boolean @default(true)
+
+  // Ambassador payout rates — deliberately separate from (and defaulting
+  // lower than) the business-partner rates above. An ambassador is a
+  // past customer or friend referring occasionally, not a tradesman with
+  // a pipeline; companies typically pay them less per referral.
+  ambassadorPayoutAppointment Decimal @db.Decimal(10, 2) @default(25)
+  ambassadorPayoutJob         Decimal @db.Decimal(10, 2) @default(100)
+
   // Subscription / status
   status             CompanyStatus @default(TRIAL)
   isComped           Boolean       @default(false) // never billed (e.g. AMP)
@@ -134,12 +164,38 @@ model Company {
   updatedAt DateTime @updatedAt
 
   users          User[]
+  memberships    Membership[]
   referrals      Referral[]
   templates      MessageTemplate[]
   partnerInvites PartnerInvite[]
 
   @@index([status])
   @@index([referredByCompanyId])
+}
+
+// The join between a User and a Company — what the old User.role +
+// User.companyId pair encoded, but many-per-user. Access control reads
+// the session's ACTIVE membership (Session.activeMembershipId); the org
+// switcher in the nav changes which one that is.
+//
+// Deleting a company cascades its memberships. Deleting a user cascades
+// their memberships (referrals are the durable record, and they hang off
+// User/Company directly).
+model Membership {
+  id        String         @id @default(cuid())
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  role      MembershipRole
+
+  createdAt DateTime @default(now())
+
+  sessions Session[]
+
+  @@unique([userId, companyId]) // one hat per company
+  @@index([companyId, role])
+  @@index([userId])
 }
 
 // A contact a company has invited to become a referral partner — by SMS
@@ -188,9 +244,16 @@ model User {
   id             String  @id @default(cuid())
   email          String  @unique
   hashedPassword String
-  role           Role    @default(PARTNER)
 
-  // SUPERADMIN has no company. COMPANY_ADMIN and PARTNER do.
+  // Platform operator flag (Joe). Orthogonal to memberships — a
+  // superadmin can also hold company memberships and switch between
+  // "Platform" and company contexts in the nav.
+  isSuperadmin Boolean @default(false)
+
+  // DEPRECATED — replaced by Membership rows + isSuperadmin. Columns kept
+  // (unread) until a post-migration cleanup drops them. Don't write to
+  // these; defaults satisfy inserts.
+  role      Role     @default(PARTNER)
   companyId String?
   company   Company? @relation(fields: [companyId], references: [id], onDelete: Restrict)
 
@@ -217,6 +280,7 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  memberships        Membership[]
   referrals          Referral[]
   sessions           Session[]
   resetTokens        PasswordResetToken[]
@@ -252,6 +316,14 @@ model Session {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
+
+  // Which of the user's memberships this session is currently acting as
+  // (the "active hat"). Null means no company context — either a
+  // superadmin in Platform view, or a stale/pre-migration session, which
+  // getSessionUser self-heals by adopting the user's first membership.
+  // SetNull (not Cascade): losing a membership must not log you out.
+  activeMembershipId String?
+  activeMembership   Membership? @relation(fields: [activeMembershipId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([expiresAt])

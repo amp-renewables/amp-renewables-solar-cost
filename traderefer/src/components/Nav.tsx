@@ -2,6 +2,7 @@ import Link from "next/link";
 import { platform } from "@/lib/platform";
 import type { SessionUser } from "@/lib/auth";
 import type { Company } from "@prisma/client";
+import { OrgSwitcher } from "./OrgSwitcher";
 
 const partnerLinks = [
   { href: "/dashboard", label: "Overview" },
@@ -51,6 +52,11 @@ export function Nav({
         ? "Admin"
         : null;
 
+  // A switcher only earns its place when there's something to switch to:
+  // 2+ memberships, or a superadmin with at least one company hat.
+  const contextCount = user.memberships.length + (user.isSuperadmin ? 1 : 0);
+  const showSwitcher = contextCount > 1;
+
   return (
     <header className="bg-brand text-white">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
@@ -78,6 +84,13 @@ export function Nav({
             <span className="text-xs bg-white/20 px-2 py-0.5 rounded">
               {rolePill}
             </span>
+          )}
+          {showSwitcher && (
+            <OrgSwitcher
+              memberships={user.memberships}
+              activeMembershipId={user.membershipId}
+              isSuperadmin={user.isSuperadmin}
+            />
           )}
         </div>
         <div className="hidden sm:flex items-center gap-3 text-sm text-emerald-100">

@@ -68,22 +68,46 @@ otherwise.
 - **Vercel Blob** for logo uploads + DB backup snapshots
 - **Cloudflare** for DNS + edge proxy
 
-## Multi-tenancy + role model
+## Multi-tenancy + role model (multi-org, since 2026-06-11)
 
-Three user roles, in `Role` enum:
+A User is a person (one email, one password, one set of bank details).
+What they ARE at each company lives in the `Membership` join table —
+one row per (user, company), `role: MembershipRole`:
 
-- `SUPERADMIN` — platform operator (Joe). No `companyId`. Sees
-  `/platform/*` routes.
-- `COMPANY_ADMIN` — owns/runs a paying Company. Belongs to one Company
-  via `User.companyId`. Up to 4 admins per company. Sees `/company/*`.
-- `PARTNER` — refers customers under a Company. Belongs to one Company.
-  Sees `/dashboard/*`.
+- `COMPANY_ADMIN` — runs that company's programme. Up to 4 per company.
+- `BUSINESS_PARTNER` — a trade business referring customers (full rates).
+- `AMBASSADOR` — an individual (past customer, friend) referring at the
+  company's separate, usually lower, ambassador rates.
 
-**Known limitation**: a User belongs to exactly ONE Company. If Sarah
-wants to refer to both AMP and another solar installer, she needs two
-emails. The fix is a `Membership` join table (planned but not done — see
-"Open decisions" below). Don't bake assumptions deeper that depend on
-1:1 user↔company.
+One person can hold memberships at many companies — ambassador at AMP,
+admin of their own company — and switches "hats" via the org switcher
+in the nav (rendered only when they have 2+ contexts).
+
+Platform operators (Joe) are flagged `User.isSuperadmin` — orthogonal
+to memberships. Superadmin with no active membership = Platform context
+(`/platform/*`).
+
+**Active context**: `Session.activeMembershipId` (server-side) records
+which membership a session is acting as. `getSessionUser()` derives
+`role`/`companyId` from it fresh on every request; the JWT carries only
+`sub` + `sid`. Sessions with a null/stale pointer self-heal by adopting
+the user's first membership — nobody gets logged out by membership
+changes.
+
+**Joining flows** (all in production):
+- Anonymous on `/<slug>/signup` → account + membership (type picker
+  between business/ambassador when the company accepts both).
+- Logged-in non-member on `/<slug>/signup` → one-click "join programme"
+  (new membership, no second account).
+- Existing email on any signup form → typing their EXISTING password
+  proves ownership and attaches the new company/membership to that
+  account; wrong password is rejected with a hint.
+- `/signup` (company signup) deliberately does NOT bounce logged-in
+  users — a partner starting their own programme is the target case.
+
+**DEPRECATED but still present**: `User.role` and `User.companyId`
+columns (and the old `Role` enum). Nothing reads them anymore; they're
+kept so a half-deployed build can't crash. Drop in a later cleanup.
 
 `Company.isComped` exempts AMP from billing — they're the original
 tenant + reference example. Don't accidentally bill them.
@@ -133,10 +157,22 @@ links (7d expiry there).
 
 ## Auth helpers (`src/lib/auth.ts`)
 
-- `getSessionUser()` — cached per-request. Returns the session user or
-  null. Always re-reads from DB so revoked sessions don't survive.
-- `requireSuperadmin()` / `requireCompanyAdmin()` / `requirePartner()` —
-  page-level guards. Redirect to login or appropriate home if wrong role.
+- `getSessionUser()` — cached per-request. Returns `SessionUser` with
+  `role`/`companyId`/`membershipId` derived from the session's ACTIVE
+  membership, plus the full `memberships` list (drives the org
+  switcher). Always re-reads from DB so revoked sessions/memberships
+  don't survive.
+- `requireSuperadmin()` (checks `isSuperadmin`) /
+  `requireCompanyAdmin()` / `requirePartner()` (accepts both
+  BUSINESS_PARTNER and AMBASSADOR) — page-level guards.
+- `setActiveMembership(id | null)` — re-points the session at another
+  of the user's memberships (validates ownership). Used by
+  `switchMembershipAction` in `lib/account-actions.ts`.
+- Payout rates: `ratesForRole(company, role)` in `lib/payouts.ts` picks
+  ambassador vs business rates. `expectedPayoutsForStatus` takes the
+  referrer's role; the status-change action looks up the referral
+  partner's membership to pass it. `payoutsForCompany` = business rates
+  (public headline numbers).
 
 ## Billing write-gate (`src/lib/stripe.ts`)
 
@@ -291,6 +327,11 @@ psql "$(vercel env pull .env.production.local --environment=production --yes &>/
 
 ## Recent significant changes (worth knowing before editing)
 
+- **2026-06-11**: Multi-org Membership model + Ambassador role. Session
+  carries an active membership; org switcher in nav; type picker on
+  partner signup; per-company ambassador rates + accepts-toggles in
+  settings; role-aware payout creation. Old User.role/companyId columns
+  deprecated in place.
 - **2026-06-04**: Weekly DB backup cron. Bank field encryption + masked
   reveal + audit log. DMARC. Favicon. Archive + delete referrals.
 - **2026-05-29**: Email signature feature. Two logo slots (standard +
@@ -304,17 +345,13 @@ psql "$(vercel env pull .env.production.local --environment=production --yes &>/
 
 ## Open decisions / known gaps
 
-1. **Multi-org membership refactor + Ambassador role** (~2 days) —
-   `User.companyId` becomes a `Membership` join table with `role:
-   COMPANY_ADMIN | BUSINESS_PARTNER | AMBASSADOR`. Lets one user refer to
-   multiple companies. Best done before significant paying-customer
-   onboarding because the data migration gets harder later.
-2. **Pending-payout-without-bank-details email** (~1 hour) — partner
-   has a payout pending but no bank fields. Currently they sit silent.
-3. **Rate limiting** on auth endpoints (login / forgot / signup) — not
+1. **Drop deprecated `User.role` / `User.companyId` columns** — kept
+   through the 2026-06-11 multi-org migration for deploy safety. Once
+   stable for a while, remove from schema + db push.
+2. **Rate limiting** on auth endpoints (login / forgot / signup) — not
    yet in place.
-4. **Sentry / error monitoring** — not yet in place.
-5. **Solicitor review** of /terms and /privacy — they're flagged as
+3. **Sentry / error monitoring** — not yet in place.
+4. **Solicitor review** of /terms and /privacy — they're flagged as
    draft in the page footers.
 
 ## Things to avoid

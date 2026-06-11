@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { saveCompanySettings, type SettingsState } from "./actions";
 
 type Props = {
@@ -15,6 +15,10 @@ type Props = {
     accentColor: string;
     payoutAppointment: number;
     payoutJob: number;
+    acceptsBusinessPartners: boolean;
+    acceptsAmbassadors: boolean;
+    ambassadorPayoutAppointment: number;
+    ambassadorPayoutJob: number;
     services: string[];
   };
 };
@@ -23,6 +27,11 @@ const initial: SettingsState = {};
 
 export function SettingsForm({ company }: Props) {
   const [state, action, pending] = useActionState(saveCompanySettings, initial);
+  // Ambassador rate fields only make sense while ambassadors are
+  // accepted — track the checkbox so they can fold away.
+  const [ambassadorsOn, setAmbassadorsOn] = useState(
+    company.acceptsAmbassadors,
+  );
 
   return (
     <form action={action} className="space-y-6">
@@ -107,6 +116,75 @@ export function SettingsForm({ company }: Props) {
           hint="What you cover, e.g. Solar PV, Battery Storage, EV Charger"
           error={state.errors?.servicesCsv}
         />
+      </Section>
+
+      <Section title="Who can refer to you">
+        <p className="text-sm text-slate-600 -mt-1">
+          Your signup page adapts to whoever you accept. Business partners
+          are trades with their own customers; ambassadors are individuals
+          — past customers, friends — who refer occasionally, usually for
+          a smaller payout.
+        </p>
+        {state.errors?.referrerTypes && (
+          <div className="bg-rose-50 border border-rose-200 text-rose-800 rounded-lg px-3 py-2 text-sm">
+            {state.errors.referrerTypes}
+          </div>
+        )}
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            name="acceptsBusinessPartners"
+            defaultChecked={company.acceptsBusinessPartners}
+            className="mt-0.5 h-4 w-4 rounded border-slate-300"
+          />
+          <span>
+            <span className="block text-sm font-medium text-slate-700">
+              Trade businesses
+            </span>
+            <span className="block text-xs text-slate-500">
+              Paid at the rates above
+            </span>
+          </span>
+        </label>
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            name="acceptsAmbassadors"
+            checked={ambassadorsOn}
+            onChange={(e) => setAmbassadorsOn(e.currentTarget.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-slate-300"
+          />
+          <span>
+            <span className="block text-sm font-medium text-slate-700">
+              Individual ambassadors
+            </span>
+            <span className="block text-xs text-slate-500">
+              Past customers and word-of-mouth referrers, at their own rates
+            </span>
+          </span>
+        </label>
+        {ambassadorsOn && (
+          <div className="grid sm:grid-cols-2 gap-4 pl-7">
+            <Field
+              label="Ambassador payout per appointment (£)"
+              name="ambassadorPayoutAppointment"
+              type="number"
+              step="0.01"
+              defaultValue={String(company.ambassadorPayoutAppointment)}
+              required
+              error={state.errors?.ambassadorPayoutAppointment}
+            />
+            <Field
+              label="Ambassador payout per job sold (£)"
+              name="ambassadorPayoutJob"
+              type="number"
+              step="0.01"
+              defaultValue={String(company.ambassadorPayoutJob)}
+              required
+              error={state.errors?.ambassadorPayoutJob}
+            />
+          </div>
+        )}
       </Section>
 
       <button

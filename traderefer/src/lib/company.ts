@@ -37,6 +37,9 @@ export function formatCompanyMoney(
   })}`;
 }
 
+// Business-partner rates — the headline numbers used on public surfaces
+// and admin previews. For a specific referrer, prefer ratesForRole from
+// lib/payouts.ts, which picks ambassador rates where they apply.
 export function payoutsForCompany(
   company: Pick<Company, "payoutAppointment" | "payoutJob">,
 ) {

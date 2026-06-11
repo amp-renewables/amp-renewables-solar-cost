@@ -6,7 +6,7 @@ import { LoginForm } from "./LoginForm";
 
 export default async function LoginPage() {
   const user = await getSessionUser();
-  if (user) redirect(landingPathForRole(user.role));
+  if (user && user.role) redirect(landingPathForRole(user.role));
 
   return (
     <div className="min-h-screen flex flex-col">

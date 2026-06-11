@@ -20,11 +20,15 @@ export default async function CompanySettingsPage({
   const sp = await searchParams;
   const welcome = sp.welcome === "1";
 
-  const teamMembers = await prisma.user.findMany({
-    where: { companyId: admin.companyId, role: "COMPANY_ADMIN" },
-    orderBy: { createdAt: "asc" },
-    select: { id: true, fullName: true, email: true },
-  });
+  const teamMembers = (
+    await prisma.membership.findMany({
+      where: { companyId: admin.companyId, role: "COMPANY_ADMIN" },
+      orderBy: { createdAt: "asc" },
+      select: {
+        user: { select: { id: true, fullName: true, email: true } },
+      },
+    })
+  ).map((m) => m.user);
 
   const partnerSignupUrl = `${platform.url}/${company.slug}/signup`;
 
@@ -114,6 +118,12 @@ export default async function CompanySettingsPage({
           accentColor: company.accentColor,
           payoutAppointment: Number(company.payoutAppointment),
           payoutJob: Number(company.payoutJob),
+          acceptsBusinessPartners: company.acceptsBusinessPartners,
+          acceptsAmbassadors: company.acceptsAmbassadors,
+          ambassadorPayoutAppointment: Number(
+            company.ambassadorPayoutAppointment,
+          ),
+          ambassadorPayoutJob: Number(company.ambassadorPayoutJob),
           services: company.services,
         }}
       />

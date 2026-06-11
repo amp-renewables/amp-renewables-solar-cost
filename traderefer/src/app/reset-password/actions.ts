@@ -50,7 +50,13 @@ export async function resetPasswordAction(
   const hashed = hashToken(parsed.data.token);
   const tokenRow = await prisma.passwordResetToken.findUnique({
     where: { hashedToken: hashed },
-    include: { user: true },
+    include: {
+      user: {
+        include: {
+          memberships: { orderBy: { createdAt: "asc" }, take: 1 },
+        },
+      },
+    },
   });
 
   if (
@@ -79,11 +85,9 @@ export async function resetPasswordAction(
     prisma.session.deleteMany({ where: { userId: tokenRow.userId } }),
   ]);
 
-  // Log the user in with a fresh session.
-  await createSession(
-    tokenRow.user.id,
-    tokenRow.user.role,
-    tokenRow.user.companyId,
-  );
-  redirect(landingPathForRole(tokenRow.user.role));
+  // Log the user in with a fresh session, acting as their first
+  // membership (superadmins with none land in platform context).
+  const first = tokenRow.user.memberships[0] ?? null;
+  await createSession(tokenRow.user.id, first?.id ?? null);
+  redirect(landingPathForRole(first ? first.role : "SUPERADMIN"));
 }

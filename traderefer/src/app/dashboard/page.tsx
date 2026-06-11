@@ -1,13 +1,9 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requirePartner } from "@/lib/auth";
-import {
-  getCurrentCompany,
-  formatCompanyMoney,
-  payoutsForCompany,
-} from "@/lib/company";
+import { getCurrentCompany, formatCompanyMoney } from "@/lib/company";
 import { platform, formatPrice } from "@/lib/platform";
-import { summarisePayouts } from "@/lib/payouts";
+import { ratesForRole, summarisePayouts } from "@/lib/payouts";
 import { StatusBadge } from "@/components/StatusBadge";
 
 export default async function DashboardOverviewPage() {
@@ -46,7 +42,10 @@ export default async function DashboardOverviewPage() {
     },
   });
 
-  const payoutRules = payoutsForCompany(company);
+  const payoutRules = ratesForRole(
+    company,
+    user.role === "AMBASSADOR" ? "AMBASSADOR" : "BUSINESS_PARTNER",
+  );
 
   return (
     <div className="space-y-8">

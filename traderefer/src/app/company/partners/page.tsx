@@ -8,16 +8,28 @@ export default async function CompanyPartnersPage() {
   const company = await getCurrentCompany();
   if (!company) return null;
 
-  const partners = await prisma.user.findMany({
-    where: { role: "PARTNER", companyId: user.companyId },
+  const memberships = await prisma.membership.findMany({
+    where: {
+      companyId: user.companyId,
+      role: { in: ["BUSINESS_PARTNER", "AMBASSADOR"] },
+    },
     include: {
-      referrals: {
-        where: { companyId: user.companyId },
-        include: { payouts: true },
+      user: {
+        include: {
+          referrals: {
+            where: { companyId: user.companyId },
+            include: { payouts: true },
+          },
+        },
       },
     },
     orderBy: { createdAt: "desc" },
   });
+  const partners = memberships.map((m) => ({
+    ...m.user,
+    membershipRole: m.role,
+    joinedAt: m.createdAt,
+  }));
 
   return (
     <div className="space-y-6">
@@ -50,7 +62,11 @@ export default async function CompanyPartnersPage() {
                       {p.businessName || p.fullName}
                     </div>
                     <div className="text-xs text-slate-500">
-                      {p.businessName ? p.fullName : "Individual referrer"}
+                      {p.membershipRole === "AMBASSADOR"
+                        ? "Ambassador"
+                        : p.businessName
+                          ? p.fullName
+                          : "Individual referrer"}
                     </div>
                   </td>
                   <td className="px-4 py-3 hidden sm:table-cell">
@@ -72,7 +88,7 @@ export default async function CompanyPartnersPage() {
                     {formatCompanyMoney(company, s.paidTotal)}
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell text-slate-500">
-                    {p.createdAt.toLocaleDateString("en-GB")}
+                    {p.joinedAt.toLocaleDateString("en-GB")}
                   </td>
                 </tr>
               );

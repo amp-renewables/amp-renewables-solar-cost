@@ -17,6 +17,13 @@ const SettingsSchema = z.object({
   accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/, "Use a hex code like #52b788"),
   payoutAppointment: z.coerce.number().min(0),
   payoutJob: z.coerce.number().min(0),
+  acceptsBusinessPartners: z.boolean(),
+  acceptsAmbassadors: z.boolean(),
+  // Optional because the form omits these fields entirely while the
+  // ambassadors checkbox is off — the stored rates are kept untouched
+  // so switching ambassadors back on restores the previous numbers.
+  ambassadorPayoutAppointment: z.coerce.number().min(0).optional(),
+  ambassadorPayoutJob: z.coerce.number().min(0).optional(),
   servicesCsv: z.string().trim().min(1),
 });
 
@@ -44,6 +51,12 @@ export async function saveCompanySettings(
     logoUrl: formData.get("logoUrl") || undefined,
     payoutAppointment: formData.get("payoutAppointment"),
     payoutJob: formData.get("payoutJob"),
+    acceptsBusinessPartners:
+      formData.get("acceptsBusinessPartners") === "on",
+    acceptsAmbassadors: formData.get("acceptsAmbassadors") === "on",
+    ambassadorPayoutAppointment:
+      formData.get("ambassadorPayoutAppointment") ?? undefined,
+    ambassadorPayoutJob: formData.get("ambassadorPayoutJob") ?? undefined,
     servicesCsv: formData.get("servicesCsv"),
   });
   if (!parsed.success) {
@@ -54,6 +67,20 @@ export async function saveCompanySettings(
         errors[field] = issue.message;
     }
     return { errors };
+  }
+
+  // A programme nobody can join is a dead signup page — force at least
+  // one referrer type on.
+  if (
+    !parsed.data.acceptsBusinessPartners &&
+    !parsed.data.acceptsAmbassadors
+  ) {
+    return {
+      errors: {
+        referrerTypes:
+          "Pick at least one referrer type — otherwise nobody can sign up.",
+      },
+    };
   }
 
   const d = parsed.data;
@@ -75,6 +102,16 @@ export async function saveCompanySettings(
       accentColor: d.accentColor,
       payoutAppointment: d.payoutAppointment,
       payoutJob: d.payoutJob,
+      acceptsBusinessPartners: d.acceptsBusinessPartners,
+      acceptsAmbassadors: d.acceptsAmbassadors,
+      // Only written when the form sent them (ambassadors toggled on);
+      // otherwise the stored rates survive the round-trip.
+      ...(d.ambassadorPayoutAppointment !== undefined
+        ? { ambassadorPayoutAppointment: d.ambassadorPayoutAppointment }
+        : {}),
+      ...(d.ambassadorPayoutJob !== undefined
+        ? { ambassadorPayoutJob: d.ambassadorPayoutJob }
+        : {}),
       services,
     },
     select: { slug: true },

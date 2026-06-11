@@ -166,21 +166,20 @@ export async function sendInvitesAction(
     email: admin.email,
   };
   if (senderId && senderId !== admin.id) {
-    const teammate = await prisma.user.findUnique({
-      where: { id: senderId },
+    const teammate = await prisma.user.findFirst({
+      where: {
+        id: senderId,
+        memberships: {
+          some: { companyId: admin.companyId, role: "COMPANY_ADMIN" },
+        },
+      },
       select: {
-        companyId: true,
-        role: true,
         fullName: true,
         businessName: true,
         email: true,
       },
     });
-    if (
-      !teammate ||
-      teammate.companyId !== admin.companyId ||
-      teammate.role !== "COMPANY_ADMIN"
-    ) {
+    if (!teammate) {
       return { error: "That sender isn't on your team." };
     }
     sender = {

@@ -1,10 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-  getCompanyBySlug,
-  formatCompanyMoney,
-  payoutsForCompany,
-} from "@/lib/company";
+import { getCompanyBySlug, formatCompanyMoney } from "@/lib/company";
+import { ratesForRole } from "@/lib/payouts";
 import { platform } from "@/lib/platform";
 
 export default async function CompanyLandingPage({
@@ -22,7 +19,15 @@ export default async function CompanyLandingPage({
   // still send users to /login or /<slug>/signup, both of which handle
   // already-authenticated visitors gracefully.
 
-  const payouts = payoutsForCompany(company);
+  // Headline = the best rate available to whoever's allowed to join.
+  // "Up to" keeps it honest when ambassadors earn less than businesses —
+  // the signup page shows each type its exact numbers before committing.
+  const allowBusiness =
+    company.acceptsBusinessPartners || !company.acceptsAmbassadors;
+  const payouts = ratesForRole(
+    company,
+    allowBusiness ? "BUSINESS_PARTNER" : "AMBASSADOR",
+  );
 
   // Inline per-company CSS variables so this page picks up the company's
   // colours regardless of what the root layout has set.

@@ -1,12 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-  getCompanyBySlug,
-  formatCompanyMoney,
-  payoutsForCompany,
-} from "@/lib/company";
+import { getCompanyBySlug, formatCompanyMoney } from "@/lib/company";
+import { ratesForRole } from "@/lib/payouts";
 import { getSessionUser, landingPathForRole } from "@/lib/auth";
-import { PartnerSignupForm } from "./PartnerSignupForm";
+import { PartnerSignupForm, JoinProgrammeForm } from "./PartnerSignupForm";
 
 export default async function PartnerSignupPage({
   params,
@@ -26,13 +23,26 @@ export default async function PartnerSignupPage({
   const sp = await searchParams;
   const inviteToken = sp.invite?.trim() || null;
 
-  // Allow logged-in users to view this page so company admins can QA their
-  // own partner-signup flow without logging out. The form will still
-  // bounce a logged-in submitter via the action's session check, and we
-  // show a banner up top so admins know what they're looking at.
   const user = await getSessionUser();
+  // Three audiences: anonymous visitors get the signup form; logged-in
+  // users who already belong here get a preview banner (admins QA this
+  // page); logged-in users who DON'T belong here get a one-click join.
+  const alreadyMember = user
+    ? user.memberships.some((m) => m.companyId === company.id)
+    : false;
 
-  const payouts = payoutsForCompany(company);
+  // Mirror of the server-side rule in actions.ts: business partners are
+  // accepted unless explicitly off AND ambassadors are on.
+  const allowBusiness =
+    company.acceptsBusinessPartners || !company.acceptsAmbassadors;
+  const allowAmbassador = company.acceptsAmbassadors;
+
+  const businessRates = ratesForRole(company, "BUSINESS_PARTNER");
+  const ambassadorRates = ratesForRole(company, "AMBASSADOR");
+  const businessTotal = formatCompanyMoney(company, businessRates.total);
+  const ambassadorTotal = formatCompanyMoney(company, ambassadorRates.total);
+  // Headline shows the best rate on offer to whoever's allowed in.
+  const headlineTotal = allowBusiness ? businessTotal : ambassadorTotal;
 
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
@@ -62,8 +72,8 @@ export default async function PartnerSignupPage({
           <h1
             className="text-3xl sm:text-4xl font-bold mb-4 leading-tight"
           >
-            Earn up to {formatCompanyMoney(company, payouts.total)} per customer
-            you refer to {company.name}.
+            Earn up to {headlineTotal} per customer you refer to{" "}
+            {company.name}.
           </h1>
           <p className="text-emerald-100">
             Already a partner?{" "}
@@ -88,31 +98,65 @@ export default async function PartnerSignupPage({
 
       <div className="px-6 py-10 sm:px-12 flex items-center">
         <div className="w-full max-w-md mx-auto">
-          {user && (
+          {user && alreadyMember && (
             <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
               <p className="font-medium">Preview mode</p>
               <p className="mt-1 text-amber-800">
                 You&apos;re viewing this page as{" "}
-                <span className="font-medium">{user.email}</span>. This is
-                exactly what new partners see — but the form below won&apos;t
-                submit (you&apos;re already logged in).{" "}
+                <span className="font-medium">{user.email}</span> and
+                you&apos;re already part of this programme. This is exactly
+                what new partners see.{" "}
                 <Link
                   href={landingPathForRole(user.role)}
                   className="underline font-medium"
                 >
-                  Back to {user.role === "PARTNER" ? "dashboard" : "admin"}
+                  Back to{" "}
+                  {user.role === "COMPANY_ADMIN" ? "admin" : "dashboard"}
                 </Link>
                 .
               </p>
             </div>
           )}
-          <h2 className="text-2xl font-bold text-brand mb-2">
-            Become a {company.name} partner
-          </h2>
-          <p className="text-slate-600 mb-6 text-sm">
-            Sign up takes 30 seconds. No fees, no contracts.
-          </p>
-          <PartnerSignupForm slug={company.slug} inviteToken={inviteToken} />
+
+          {user && !alreadyMember ? (
+            <>
+              <h2 className="text-2xl font-bold text-brand mb-2">
+                Join {company.name}&apos;s programme
+              </h2>
+              <p className="text-slate-600 mb-6 text-sm">
+                You&apos;re logged in as{" "}
+                <span className="font-medium">{user.email}</span> — one
+                click adds this programme to your existing account. No new
+                password, no second login.
+              </p>
+              <JoinProgrammeForm
+                slug={company.slug}
+                companyName={company.name}
+                inviteToken={inviteToken}
+                allowBusiness={allowBusiness}
+                allowAmbassador={allowAmbassador}
+                businessTotal={businessTotal}
+                ambassadorTotal={ambassadorTotal}
+              />
+            </>
+          ) : (
+            <>
+              <h2 className="text-2xl font-bold text-brand mb-2">
+                Become a {company.name} partner
+              </h2>
+              <p className="text-slate-600 mb-6 text-sm">
+                Sign up takes 30 seconds. No fees, no contracts.
+              </p>
+              <PartnerSignupForm
+                slug={company.slug}
+                inviteToken={inviteToken}
+                allowBusiness={allowBusiness}
+                allowAmbassador={allowAmbassador}
+                businessTotal={businessTotal}
+                ambassadorTotal={ambassadorTotal}
+              />
+            </>
+          )}
         </div>
       </div>
     </div>

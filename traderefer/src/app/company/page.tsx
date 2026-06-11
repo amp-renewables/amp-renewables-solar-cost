@@ -33,8 +33,11 @@ export default async function CompanyOverviewPage() {
         status: { in: ["JOB_SOLD", "JOB_INSTALLED"] },
       },
     }),
-    prisma.user.count({
-      where: { companyId: user.companyId, role: "PARTNER" },
+    prisma.membership.count({
+      where: {
+        companyId: user.companyId,
+        role: { in: ["BUSINESS_PARTNER", "AMBASSADOR"] },
+      },
     }),
     prisma.payout.aggregate({
       _sum: { amount: true },

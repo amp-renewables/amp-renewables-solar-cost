@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { platform, formatPrice } from "@/lib/platform";
-import { getSessionUser, landingPathForRole } from "@/lib/auth";
+import { getSessionUser } from "@/lib/auth";
 import { getCompanyBySlug } from "@/lib/company";
 import { Logo } from "@/components/Logo";
 import { CompanySignupForm } from "./CompanySignupForm";
@@ -11,8 +10,12 @@ export default async function CompanySignupPage({
 }: {
   searchParams: Promise<{ ref?: string }>;
 }) {
+  // Deliberately NO logged-in redirect here (unlike /login): with
+  // multi-org accounts, an existing partner clicking "run your own
+  // programme" from their dashboard is exactly who this page is for.
+  // Entering their existing email + password attaches the new company
+  // to their account.
   const user = await getSessionUser();
-  if (user) redirect(landingPathForRole(user.role));
 
   // Resolve the optional ?ref=<slug> against a real company. If the slug
   // doesn't match anything, we silently ignore — links shouldn't break
@@ -65,6 +68,19 @@ export default async function CompanySignupPage({
                 They think {platform.name} is worth recommending — and we
                 give them 25% off their subscription for sending you our
                 way.
+              </p>
+            </div>
+          )}
+          {user && (
+            <div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-700 mb-6">
+              <p className="font-semibold">
+                Adding a company to your account?
+              </p>
+              <p className="text-xs text-slate-600 mt-1">
+                You&apos;re logged in as {user.email}. Use that email and
+                your existing password below and the new company joins
+                your account — switch between them from the menu, one
+                login for everything.
               </p>
             </div>
           )}
