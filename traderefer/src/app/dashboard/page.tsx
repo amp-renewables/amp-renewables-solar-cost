@@ -109,6 +109,10 @@ export default async function DashboardOverviewPage() {
         />
       </div>
 
+      {/* Pitched at businesses only — an ambassador referring as
+          themselves has no company to put on TradeRefer, so for them
+          this is noise. */}
+      {user.role === "BUSINESS_PARTNER" && (
       <section className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl p-6 sm:p-8 flex items-start gap-6 flex-wrap">
         <div className="flex-1 min-w-[260px]">
           <p className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2">
@@ -136,6 +140,7 @@ export default async function DashboardOverviewPage() {
           Start free trial →
         </a>
       </section>
+      )}
 
       <section>
         <div className="flex items-center justify-between mb-3">

@@ -3,6 +3,7 @@ import { getCurrentCompany } from "@/lib/company";
 import { platform, formatPrice } from "@/lib/platform";
 import { billingDisplay, stripeConfigured } from "@/lib/stripe";
 import { getReferralStanding } from "@/lib/referral";
+import { SubNav, SETTINGS_TABS } from "@/components/SubNav";
 import Link from "next/link";
 import {
   openBillingPortalAction,
@@ -46,6 +47,7 @@ export default async function CompanyBillingPage({
 
   return (
     <div className="space-y-8 max-w-3xl">
+      <SubNav items={SETTINGS_TABS} active="/company/billing" />
       <div>
         <h1
           className="text-2xl font-bold text-brand"

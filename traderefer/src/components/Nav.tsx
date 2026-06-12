@@ -13,6 +13,10 @@ const partnerLinks = [
   { href: "/dashboard/settings", label: "Account" },
 ];
 
+// Deliberately seven items — Signature lives under Templates, and
+// Network + Billing live under Settings (each of those pages carries a
+// SubNav tab row). The old direct URLs all still work; emails and
+// write-gate CTAs link straight to /company/billing.
 const companyLinks = [
   { href: "/company", label: "Overview" },
   { href: "/company/referrals", label: "Referrals" },
@@ -20,10 +24,7 @@ const companyLinks = [
   { href: "/company/invites", label: "Invites" },
   { href: "/company/payouts", label: "Payouts" },
   { href: "/company/templates", label: "Templates" },
-  { href: "/company/signature", label: "Signature" },
-  { href: "/company/network", label: "Network" },
   { href: "/company/settings", label: "Settings" },
-  { href: "/company/billing", label: "Billing" },
 ];
 
 const platformLinks = [

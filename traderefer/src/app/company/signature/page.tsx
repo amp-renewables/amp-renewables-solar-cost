@@ -1,5 +1,6 @@
 import { requireCompanyAdmin } from "@/lib/auth";
 import { getCurrentCompany } from "@/lib/company";
+import { SubNav, TEMPLATE_TABS } from "@/components/SubNav";
 import {
   renderSignaturePlain,
   renderSignatureHtml,
@@ -24,6 +25,7 @@ export default async function SignaturePage() {
 
   return (
     <div className="space-y-10 max-w-3xl">
+      <SubNav items={TEMPLATE_TABS} active="/company/signature" />
       <div>
         <h1 className="text-2xl font-bold text-brand">Email signature</h1>
         <p className="text-sm text-slate-600 mt-1">

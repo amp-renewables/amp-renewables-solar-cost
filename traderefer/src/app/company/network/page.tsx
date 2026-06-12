@@ -4,6 +4,7 @@ import { getCurrentCompany } from "@/lib/company";
 import { platform, formatPrice } from "@/lib/platform";
 import { prisma } from "@/lib/db";
 import { getReferralStanding } from "@/lib/referral";
+import { SubNav, SETTINGS_TABS } from "@/components/SubNav";
 import { CopyButton } from "./CopyButton";
 
 export default async function CompanyNetworkPage() {
@@ -38,6 +39,7 @@ export default async function CompanyNetworkPage() {
 
   return (
     <div className="space-y-8 max-w-4xl">
+      <SubNav items={SETTINGS_TABS} active="/company/network" />
       <div>
         <h1 className="text-2xl font-bold text-brand">Your referral network</h1>
         <p className="text-sm text-slate-600 mt-1">

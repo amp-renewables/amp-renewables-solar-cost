@@ -4,6 +4,7 @@ import { getCurrentCompany } from "@/lib/company";
 import { platform, formatPrice } from "@/lib/platform";
 import { prisma } from "@/lib/db";
 import { ChangePasswordCard } from "@/components/ChangePasswordCard";
+import { SubNav, SETTINGS_TABS } from "@/components/SubNav";
 import { SettingsForm } from "./SettingsForm";
 import { LogoUpload } from "./LogoUpload";
 import { TeamMembers } from "./TeamMembers";
@@ -34,6 +35,7 @@ export default async function CompanySettingsPage({
 
   return (
     <div className="space-y-8 max-w-3xl">
+      <SubNav items={SETTINGS_TABS} active="/company/settings" />
       {welcome && (
         <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl px-5 py-5 space-y-3">
           <h2
