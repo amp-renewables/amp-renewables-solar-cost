@@ -124,13 +124,12 @@ export default async function PartnerSignupPage({
             </li>
           </ul>
 
+          {/* White, not accentColor — some companies' accents land
+              around 3:1 against their own dark primary, too low for
+              small text. White passes on any brand colour. */}
           <p className="text-emerald-100">
             Already a partner?{" "}
-            <Link
-              href="/login"
-              className="font-medium underline"
-              style={{ color: company.accentColor }}
-            >
+            <Link href="/login" className="font-medium underline text-white">
               Log in here
             </Link>
             .
