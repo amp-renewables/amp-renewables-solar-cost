@@ -132,7 +132,7 @@ export default async function CompanyLandingPage({
               href={`/${company.slug}/signup`}
               className="bg-brand-accent text-brand font-semibold px-6 py-3 rounded-lg w-full sm:w-auto"
             >
-              Become a partner →
+              Start referring →
             </Link>
             <Link
               href="/login"
