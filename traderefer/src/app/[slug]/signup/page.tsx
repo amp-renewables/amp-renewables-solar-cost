@@ -52,7 +52,7 @@ export default async function PartnerSignupPage({
         }}
       />
 
-      <div className="bg-brand text-white px-8 py-12 flex flex-col justify-between">
+      <div className="bg-brand text-white px-8 py-12 flex flex-col">
         <div className="flex items-center gap-3">
           {/* Dark panel — prefer the light/inverse logo. If only a standard
               logo is uploaded, fall back to company name as text rather
@@ -68,66 +68,66 @@ export default async function PartnerSignupPage({
             <span className="font-bold text-xl">{company.name}</span>
           )}
         </div>
-        <div className="my-12">
-          <h1
-            className="text-3xl sm:text-4xl font-bold mb-8 leading-tight"
-          >
+
+        {/* Centre the pitch in the space between logo and contact line so
+            it doesn't float adrift on tall viewports. */}
+        <div className="flex-1 flex flex-col justify-center max-w-md py-12">
+          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-white/70 mb-5">
+            Partner programme
+          </span>
+          <h1 className="text-3xl sm:text-4xl font-bold mb-8 leading-[1.1]">
             Earn up to {headlineTotal} per customer you refer to{" "}
             {company.name}.
           </h1>
 
-          {/* The deal, in numbers — this panel was previously empty space
-              and this is the conversion moment. Adapts to sold-jobs-only
-              deals (zero appointment rate). */}
-          <div className="space-y-3 mb-8">
+          {/* The deal, in numbers — the conversion moment. The figures are
+              the loudest thing on the panel, paired tightly with their
+              label. Adapts to sold-jobs-only deals (zero appointment rate). */}
+          <div className="space-y-5 mb-9">
             {payouts.appointment > 0 ? (
               <>
                 <div className="flex items-baseline gap-3">
-                  <span className="text-2xl font-bold w-20 shrink-0">
+                  <span className="text-3xl font-extrabold leading-none">
                     {formatCompanyMoney(company, payouts.appointment)}
                   </span>
-                  <span className="text-emerald-100">
+                  <span className="text-white/80">
                     when the appointment is booked
                   </span>
                 </div>
                 <div className="flex items-baseline gap-3">
-                  <span className="text-2xl font-bold w-20 shrink-0">
+                  <span className="text-3xl font-extrabold leading-none">
                     {formatCompanyMoney(company, payouts.job)}
                   </span>
-                  <span className="text-emerald-100">
-                    more when the job sells
-                  </span>
+                  <span className="text-white/80">more when the job sells</span>
                 </div>
               </>
             ) : (
               <div className="flex items-baseline gap-3">
-                <span className="text-2xl font-bold w-20 shrink-0">
+                <span className="text-3xl font-extrabold leading-none">
                   {formatCompanyMoney(company, payouts.job)}
                 </span>
-                <span className="text-emerald-100">when the job sells</span>
+                <span className="text-white/80">when the job sells</span>
               </div>
             )}
           </div>
 
-          <ul className="space-y-2 text-sm text-emerald-100 mb-8">
-            <li className="flex gap-2">
-              <span style={{ color: company.accentColor }}>✓</span>
-              Free to join — signing up takes 30 seconds
-            </li>
-            <li className="flex gap-2">
-              <span style={{ color: company.accentColor }}>✓</span>
-              Every referral tracked — see exactly where each one is
-            </li>
-            <li className="flex gap-2">
-              <span style={{ color: company.accentColor }}>✓</span>
-              Paid by bank transfer; your details are encrypted
-            </li>
+          <ul className="space-y-2.5 text-sm text-white/80 mb-8">
+            {[
+              "Free to join — signing up takes 30 seconds",
+              "Every referral tracked — see exactly where each one is",
+              "Paid by bank transfer; your details are encrypted",
+            ].map((point) => (
+              <li key={point} className="flex items-start gap-2.5">
+                <Check />
+                <span>{point}</span>
+              </li>
+            ))}
           </ul>
 
           {/* White, not accentColor — some companies' accents land
               around 3:1 against their own dark primary, too low for
               small text. White passes on any brand colour. */}
-          <p className="text-emerald-100">
+          <p className="text-white/80">
             Already a partner?{" "}
             <Link href="/login" className="font-medium underline text-white">
               Log in here
@@ -135,7 +135,8 @@ export default async function PartnerSignupPage({
             .
           </p>
         </div>
-        <p className="text-sm text-emerald-200">
+
+        <p className="text-sm text-white/60">
           Questions? Email{" "}
           <a href={`mailto:${company.contactEmail}`} className="underline">
             {company.contactEmail}
@@ -204,5 +205,27 @@ export default async function PartnerSignupPage({
         </div>
       </div>
     </div>
+  );
+}
+
+// Crisp, consistently-sized tick for the benefit list. Replaces the thin
+// grey ✓ glyph, which rendered weakly at body size. White stroke reads
+// cleanly on any tenant's dark primary (some accents are too low-contrast).
+function Check() {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      aria-hidden="true"
+      className="mt-0.5 h-4 w-4 shrink-0 text-white"
+    >
+      <path
+        d="M4.5 10.5l3.5 3.5 7.5-8"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }

@@ -3,6 +3,7 @@ import { platform } from "@/lib/platform";
 import type { SessionUser } from "@/lib/auth";
 import type { Company } from "@prisma/client";
 import { OrgSwitcher } from "./OrgSwitcher";
+import { NavTabs } from "./NavTabs";
 
 const partnerLinks = [
   { href: "/dashboard", label: "Overview" },
@@ -94,7 +95,7 @@ export function Nav({
             />
           )}
         </div>
-        <div className="hidden sm:flex items-center gap-3 text-sm text-emerald-100">
+        <div className="hidden sm:flex items-center gap-3 text-sm text-white/70">
           <span className="hidden md:inline">
             {user.businessName || user.fullName || user.email}
           </span>
@@ -116,17 +117,9 @@ export function Nav({
           </form>
         </div>
       </div>
-      <nav className="bg-black/10">
+      <nav className="bg-black/20 border-t border-white/10">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex gap-1 overflow-x-auto">
-          {links.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              className="px-3 py-2 text-sm whitespace-nowrap hover:bg-white/10 rounded-t-lg"
-            >
-              {l.label}
-            </Link>
-          ))}
+          <NavTabs links={links} />
           <div className="sm:hidden ml-auto flex items-center">
             <Link
               href="/help"

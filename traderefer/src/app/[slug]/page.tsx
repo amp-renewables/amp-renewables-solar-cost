@@ -78,7 +78,7 @@ export default async function CompanyLandingPage({
             Refer customers to {company.name}. Earn up to{" "}
             {formatCompanyMoney(company, payouts.total)} per job.
           </h1>
-          <p className="text-lg text-emerald-100 max-w-2xl mx-auto mb-8">
+          <p className="text-lg text-white/80 max-w-2xl mx-auto mb-8">
             {company.heroSubheading ??
               (payouts.appointment > 0
                 ? `A simple referral programme for roofers, electricians and other trades. Send a customer to ${company.name} — they book the appointment and pay you ${formatCompanyMoney(company, payouts.appointment)}. If the job sells, you earn another ${formatCompanyMoney(company, payouts.job)}.`
@@ -95,7 +95,7 @@ export default async function CompanyLandingPage({
                 <div className="text-2xl font-bold">
                   {formatCompanyMoney(company, payouts.appointment)}
                 </div>
-                <div className="text-sm text-emerald-100 mt-0.5">
+                <div className="text-sm text-white/80 mt-0.5">
                   when the appointment is booked
                 </div>
               </div>
@@ -103,7 +103,7 @@ export default async function CompanyLandingPage({
                 <div className="text-2xl font-bold">
                   {formatCompanyMoney(company, payouts.job)}
                 </div>
-                <div className="text-sm text-emerald-100 mt-0.5">
+                <div className="text-sm text-white/80 mt-0.5">
                   more when the job sells
                 </div>
               </div>
@@ -136,7 +136,7 @@ export default async function CompanyLandingPage({
             </Link>
             <Link
               href="/login"
-              className="border border-emerald-200 text-emerald-100 px-6 py-3 rounded-lg w-full sm:w-auto hover:bg-white/5"
+              className="border border-white/30 text-white/90 px-6 py-3 rounded-lg w-full sm:w-auto hover:bg-white/5"
             >
               I already have an account
             </Link>
@@ -208,7 +208,7 @@ export default async function CompanyLandingPage({
           >
             Ready to start earning?
           </h2>
-          <p className="text-emerald-100 mb-8">
+          <p className="text-white/80 mb-8">
             Sign up takes 30 seconds. No fees, no contracts.
           </p>
           <Link
