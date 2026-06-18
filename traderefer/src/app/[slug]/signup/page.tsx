@@ -71,7 +71,7 @@ export default async function PartnerSignupPage({
 
         {/* Centre the pitch in the space between logo and contact line so
             it doesn't float adrift on tall viewports. */}
-        <div className="flex-1 flex flex-col justify-center max-w-md py-12">
+        <div className="flex-1 flex flex-col justify-center max-w-md py-12 ml-auto text-right">
           <span className="text-xs font-semibold uppercase tracking-[0.18em] text-white/70 mb-5">
             Partner programme
           </span>
@@ -86,27 +86,27 @@ export default async function PartnerSignupPage({
           <div className="space-y-5 mb-9">
             {payouts.appointment > 0 ? (
               <>
-                <div className="flex items-baseline gap-3">
-                  <span className="text-3xl font-extrabold leading-none">
-                    {formatCompanyMoney(company, payouts.appointment)}
-                  </span>
+                <div className="flex items-baseline justify-end gap-3">
                   <span className="text-white/80">
                     when the appointment is booked
                   </span>
+                  <span className="text-3xl font-extrabold leading-none">
+                    {formatCompanyMoney(company, payouts.appointment)}
+                  </span>
                 </div>
-                <div className="flex items-baseline gap-3">
+                <div className="flex items-baseline justify-end gap-3">
+                  <span className="text-white/80">more when the job sells</span>
                   <span className="text-3xl font-extrabold leading-none">
                     {formatCompanyMoney(company, payouts.job)}
                   </span>
-                  <span className="text-white/80">more when the job sells</span>
                 </div>
               </>
             ) : (
-              <div className="flex items-baseline gap-3">
+              <div className="flex items-baseline justify-end gap-3">
+                <span className="text-white/80">when the job sells</span>
                 <span className="text-3xl font-extrabold leading-none">
                   {formatCompanyMoney(company, payouts.job)}
                 </span>
-                <span className="text-white/80">when the job sells</span>
               </div>
             )}
           </div>
@@ -117,9 +117,9 @@ export default async function PartnerSignupPage({
               "Every referral tracked — see exactly where each one is",
               "Paid by bank transfer; your details are encrypted",
             ].map((point) => (
-              <li key={point} className="flex items-start gap-2.5">
-                <Check />
+              <li key={point} className="flex items-start justify-end gap-2.5">
                 <span>{point}</span>
+                <Check />
               </li>
             ))}
           </ul>
