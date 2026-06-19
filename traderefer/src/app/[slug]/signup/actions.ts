@@ -12,6 +12,7 @@ import {
   verifyPassword,
 } from "@/lib/auth";
 import { getCompanyBySlug } from "@/lib/company";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 import {
   sendNewPartnerSignupNotification,
   sendPartnerWelcomeEmail,
@@ -70,6 +71,16 @@ export async function partnerSignupAction(
   _prev: PartnerSignupState,
   formData: FormData,
 ): Promise<PartnerSignupState> {
+  const limited = await rateLimit("signup-partner", await clientIp(), {
+    limit: 10,
+    windowSec: 3600,
+  });
+  if (!limited.ok) {
+    return {
+      formError: "Too many sign-up attempts. Please wait a little and try again.",
+    };
+  }
+
   const parsed = SignupSchema.safeParse({
     slug: formData.get("slug"),
     referrerType: formData.get("referrerType"),

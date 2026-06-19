@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { createSession, hashPassword, verifyPassword } from "@/lib/auth";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { findAvailableSlug } from "@/lib/company";
 import { platform } from "@/lib/platform";
 import {
@@ -33,6 +34,16 @@ export async function companySignupAction(
   _prev: CompanySignupState,
   formData: FormData,
 ): Promise<CompanySignupState> {
+  const limited = await rateLimit("signup-company", await clientIp(), {
+    limit: 6,
+    windowSec: 3600,
+  });
+  if (!limited.ok) {
+    return {
+      formError: "Too many sign-up attempts. Please wait a little and try again.",
+    };
+  }
+
   const parsed = SignupSchema.safeParse({
     companyName: formData.get("companyName"),
     ownerName: formData.get("ownerName"),

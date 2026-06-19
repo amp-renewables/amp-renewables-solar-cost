@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -6,6 +7,49 @@ import {
   payoutsForCompany,
 } from "@/lib/company";
 import { platform } from "@/lib/platform";
+
+// Per-tenant metadata — the landing page is the most SEO-valuable public
+// surface (someone Googling "<company> referral programme" should land
+// here). Without this every tenant inherits the generic platform title.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const company = await getCompanyBySlug(slug);
+  if (!company) return {};
+
+  const payouts = payoutsForCompany(company);
+  const title = `Refer customers to ${company.name} — earn up to ${formatCompanyMoney(
+    company,
+    payouts.total,
+  )}`;
+  const description =
+    company.heroSubheading ??
+    `Join the ${company.name} referral programme. Refer a customer, they book an appointment and you get paid — track every referral and payout in one place.`;
+  const url = `${platform.url}/${company.slug}`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      type: "website",
+      title,
+      description,
+      url,
+      siteName: platform.name,
+      // Use the company's own logo as the share image where they've set one.
+      ...(company.logoUrl ? { images: [{ url: company.logoUrl }] } : {}),
+    },
+    twitter: {
+      card: company.logoUrl ? "summary" : "summary_large_image",
+      title,
+      description,
+    },
+  };
+}
 
 export default async function CompanyLandingPage({
   params,

@@ -40,58 +40,45 @@ const IV_BYTES = 12;
 const TAG_BYTES = 16;
 const KEY_BYTES = 32;
 
-/** Lazy-loaded key — read once on first use so missing env in dev doesn't
+/** Lazy-loaded keys — read once on first use so missing env in dev doesn't
  *  break unrelated code paths. */
 let cachedKey: Buffer | null = null;
+let cachedBackupKey: Buffer | null = null;
 
-function getKey(): Buffer {
-  if (cachedKey) return cachedKey;
-  const hex = process.env.BANK_ENCRYPTION_KEY;
+function keyFromEnv(name: string, hex: string | undefined): Buffer {
   if (!hex) {
     throw new Error(
-      "BANK_ENCRYPTION_KEY is not set. Bank-field encryption cannot " +
-        "proceed. Generate one with: " +
+      `${name} is not set. Generate one with: ` +
         `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`,
     );
   }
   const buf = Buffer.from(hex, "hex");
   if (buf.length !== KEY_BYTES) {
     throw new Error(
-      `BANK_ENCRYPTION_KEY must be ${KEY_BYTES} bytes (${KEY_BYTES * 2} hex chars); ` +
+      `${name} must be ${KEY_BYTES} bytes (${KEY_BYTES * 2} hex chars); ` +
         `got ${buf.length} bytes.`,
     );
   }
-  cachedKey = buf;
+  return buf;
+}
+
+function getKey(): Buffer {
+  if (cachedKey) return cachedKey;
+  cachedKey = keyFromEnv("BANK_ENCRYPTION_KEY", process.env.BANK_ENCRYPTION_KEY);
   return cachedKey;
 }
 
-/**
- * Encrypt a string for at-rest storage. Returns a base64-encoded envelope
- * containing IV + auth tag + ciphertext.
- *
- * Each call produces a different ciphertext for the same input (random IV).
- *
- * Throws if BANK_ENCRYPTION_KEY isn't configured.
- */
-export function encryptField(plain: string): string {
-  const key = getKey();
+// AES-256-GCM with a fresh random IV per call. Envelope = base64(IV || tag
+// || ciphertext). Shared by both the bank-field key and the backup key.
+function encryptWithKey(plain: string, key: Buffer): string {
   const iv = randomBytes(IV_BYTES);
   const cipher = createCipheriv(ALGORITHM, key, iv);
-  const ct = Buffer.concat([
-    cipher.update(plain, "utf8"),
-    cipher.final(),
-  ]);
+  const ct = Buffer.concat([cipher.update(plain, "utf8"), cipher.final()]);
   const tag = cipher.getAuthTag();
   return Buffer.concat([iv, tag, ct]).toString("base64");
 }
 
-/**
- * Decrypt an envelope produced by encryptField. Throws if the envelope is
- * malformed, the auth tag doesn't verify (tampered ciphertext), or the key
- * is wrong (post-rotation pre-migration data).
- */
-export function decryptField(envelope: string): string {
-  const key = getKey();
+function decryptWithKey(envelope: string, key: Buffer): string {
   const buf = Buffer.from(envelope, "base64");
   if (buf.length < IV_BYTES + TAG_BYTES + 1) {
     throw new Error("Encrypted envelope is too short to be valid.");
@@ -107,6 +94,27 @@ export function decryptField(envelope: string): string {
 }
 
 /**
+ * Encrypt a string for at-rest storage. Returns a base64-encoded envelope
+ * containing IV + auth tag + ciphertext.
+ *
+ * Each call produces a different ciphertext for the same input (random IV).
+ *
+ * Throws if BANK_ENCRYPTION_KEY isn't configured.
+ */
+export function encryptField(plain: string): string {
+  return encryptWithKey(plain, getKey());
+}
+
+/**
+ * Decrypt an envelope produced by encryptField. Throws if the envelope is
+ * malformed, the auth tag doesn't verify (tampered ciphertext), or the key
+ * is wrong (post-rotation pre-migration data).
+ */
+export function decryptField(envelope: string): string {
+  return decryptWithKey(envelope, getKey());
+}
+
+/**
  * Best-effort decrypt. Returns null on any failure. Use when partial
  * display (e.g. masked view) is acceptable and you don't want a malformed
  * row to crash an admin page.
@@ -119,4 +127,39 @@ export function tryDecryptField(envelope: string | null): string | null {
     console.error("[crypto] decrypt failed:", err);
     return null;
   }
+}
+
+// --- Backup payload encryption ---------------------------------------------
+//
+// The weekly DB dump is a full cross-tenant export of customer/partner PII.
+// It's encrypted with a SEPARATE key (BACKUP_ENCRYPTION_KEY) before it ever
+// leaves the process, so a leaked blob URL yields ciphertext, not data. The
+// key is deliberately distinct from BANK_ENCRYPTION_KEY: a leak of one must
+// not compromise the other. Store it outside Vercel (password manager /
+// sealed note) — losing it makes the snapshots unrecoverable.
+
+function getBackupKey(): Buffer {
+  if (cachedBackupKey) return cachedBackupKey;
+  cachedBackupKey = keyFromEnv(
+    "BACKUP_ENCRYPTION_KEY",
+    process.env.BACKUP_ENCRYPTION_KEY,
+  );
+  return cachedBackupKey;
+}
+
+/** Whether the backup key is configured. Lets the cron refuse to write an
+ *  unencrypted dump rather than silently fall back to cleartext. */
+export function backupEncryptionConfigured(): boolean {
+  return Boolean(process.env.BACKUP_ENCRYPTION_KEY);
+}
+
+/** Encrypt a backup payload. Throws if BACKUP_ENCRYPTION_KEY isn't set. */
+export function encryptBackup(plain: string): string {
+  return encryptWithKey(plain, getBackupKey());
+}
+
+/** Decrypt a backup envelope produced by encryptBackup. Used by the restore
+ *  script. Throws on a wrong/missing key or tampered payload. */
+export function decryptBackup(envelope: string): string {
+  return decryptWithKey(envelope, getBackupKey());
 }

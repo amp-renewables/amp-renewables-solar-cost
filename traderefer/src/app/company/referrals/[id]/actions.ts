@@ -169,7 +169,13 @@ export async function updateReferralStatusAction(formData: FormData) {
           _sum: { amount: true },
           where: {
             status: "PENDING",
-            referral: { partnerId: existing.partnerId },
+            // Scope to THIS company — a partner who refers for several
+            // companies must not see other tenants' pending amounts in a
+            // company-branded email.
+            referral: {
+              partnerId: existing.partnerId,
+              companyId: existing.companyId,
+            },
           },
         });
         await sendBankDetailsNeededEmail(

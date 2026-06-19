@@ -452,6 +452,10 @@ model Payout {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // One APPOINTMENT + one JOB payout per referral, max. The status-change
+  // action is the primary guarantor; this makes an accidental double
+  // milestone payout a hard DB error rather than a silent double-pay.
+  @@unique([referralId, type])
   @@index([referralId])
   @@index([status])
 }
@@ -471,4 +475,20 @@ model MessageTemplate {
   updatedAt DateTime @updatedAt
 
   @@index([companyId, channel, active, sortOrder])
+}
+
+// Fixed-window rate limiter for unauthenticated auth endpoints (login,
+// forgot-password, signup). One row per (bucket, identifier). Postgres-
+// backed rather than Redis so it works on serverless with no extra infra;
+// at auth volumes the write cost is negligible. Stale rows are reset in
+// place when their window expires, and bulk-pruned by the weekly cron.
+model RateLimit {
+  id          String   @id @default(cuid())
+  bucket      String // e.g. "login", "forgot-password", "signup"
+  identifier  String // usually the caller IP (optionally :email)
+  count       Int      @default(0)
+  windowStart DateTime @default(now())
+
+  @@unique([bucket, identifier])
+  @@index([windowStart])
 }

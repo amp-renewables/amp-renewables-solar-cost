@@ -19,6 +19,7 @@ import Stripe from "stripe";
 import { prisma } from "@/lib/db";
 import { getStripe } from "@/lib/stripe";
 import { recalcReferralDiscount } from "@/lib/referral";
+import { reportError } from "@/lib/report-error";
 import type { CompanyStatus } from "@prisma/client";
 
 const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET;
@@ -77,7 +78,9 @@ export async function POST(request: Request) {
         console.log(`[stripe-webhook] ignoring event type: ${event.type}`);
     }
   } catch (err) {
-    console.error(`[stripe-webhook] handler failed for ${event.type}:`, err);
+    // Alert loudly — a failing billing webhook is the kind of break that
+    // otherwise goes unnoticed until a customer complains.
+    await reportError("stripe-webhook", err, { eventType: event.type, eventId: event.id });
     // Return 500 so Stripe retries — but ONLY if this is a transient error.
     // If we return 200, Stripe stops retrying even if we didn't actually
     // process the event. Trade-off here is in Stripe's favour (retries are
@@ -311,6 +314,11 @@ function mapStripeStatus(stripeStatus: Stripe.Subscription.Status): CompanyStatu
     case "incomplete_expired":
       return "CANCELLED";
     case "incomplete":
+      // Subscription created but the FIRST payment hasn't cleared. We use a
+      // real card at Checkout (no Stripe trial), so this must NOT grant
+      // write access. Park it in PAST_DUE (non-writeable); invoice.
+      // payment_succeeded flips it to ACTIVE the moment payment confirms.
+      return "PAST_DUE";
     case "paused":
     default:
       // Conservative: treat unknown / pending states as ACTIVE so we don't

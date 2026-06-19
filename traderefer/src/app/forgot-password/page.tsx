@@ -1,8 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionUser, landingPathForRole } from "@/lib/auth";
 import { Logo } from "@/components/Logo";
 import { ForgotPasswordForm } from "./ForgotPasswordForm";
+
+// Auth pages are functional, not content — keep them out of the index.
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 export default async function ForgotPasswordPage() {
   const user = await getSessionUser();

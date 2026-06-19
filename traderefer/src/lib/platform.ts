@@ -5,10 +5,13 @@
 export const platform = {
   name: process.env.PLATFORM_NAME || "TradeRefer",
   domain: process.env.PLATFORM_DOMAIN || "traderefer.co.uk",
+  // Apex is canonical — middleware 308-redirects www → apex. This fallback
+  // backs canonical tags, the sitemap and OG metadataBase, so it must be the
+  // apex, not www (APP_URL overrides it in production regardless).
   url:
     process.env.APP_URL ||
     process.env.NEXT_PUBLIC_BASE_URL ||
-    "https://www.traderefer.co.uk",
+    "https://traderefer.co.uk",
   supportEmail:
     process.env.PLATFORM_SUPPORT_EMAIL || "support@traderefer.co.uk",
 

@@ -37,8 +37,13 @@ export async function markPayoutPaidAction(formData: FormData) {
     throw new Error("Not authorised to modify this payout");
   }
 
-  await prisma.payout.update({
-    where: { id: parsed.payoutId },
+  // Only PENDING payouts can be marked paid. Guards against a double-submit
+  // or crafted POST silently overwriting an already-PAID payout's paidAt/
+  // paidBy/paymentRef, or resurrecting a CANCELLED one. Conditional update
+  // so the status check and the write are atomic; a 0-count means another
+  // request already handled it.
+  const { count } = await prisma.payout.updateMany({
+    where: { id: parsed.payoutId, status: "PENDING" },
     data: {
       status: "PAID",
       paidAt: new Date(),
@@ -46,6 +51,9 @@ export async function markPayoutPaidAction(formData: FormData) {
       paymentRef: parsed.paymentRef || null,
     },
   });
+  if (count === 0) {
+    throw new Error("This payout is no longer pending — refresh to see its current status.");
+  }
 
   revalidatePath("/company/payouts");
   revalidatePath("/company");

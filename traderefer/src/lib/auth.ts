@@ -81,6 +81,17 @@ export async function createSession(
   });
 }
 
+// The id of the session backing the current request's cookie, or null if
+// unauthenticated. Used to revoke *other* sessions on password change while
+// keeping the current one alive.
+export async function currentSessionId(): Promise<string | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(COOKIE_NAME)?.value;
+  if (!token) return null;
+  const payload = await verifyToken(token);
+  return payload?.sid ?? null;
+}
+
 export async function destroySession() {
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIE_NAME)?.value;

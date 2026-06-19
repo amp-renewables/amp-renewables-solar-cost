@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "./db";
 import {
+  currentSessionId,
   hashPassword,
   landingPathForRole,
   requireUser,
@@ -92,7 +93,16 @@ export async function changePasswordAction(
     data: { hashedPassword: newHash },
   });
 
+  // Revoke every OTHER session — a password change is the standard response
+  // to suspected compromise, so any cookie on another device must stop
+  // working. Keep the current session so the user isn't logged out mid-flow.
+  // Mirrors resetPasswordAction (which deletes all sessions + re-issues).
+  const sid = await currentSessionId();
+  await prisma.session.deleteMany({
+    where: { userId: user.id, ...(sid ? { NOT: { id: sid } } : {}) },
+  });
+
   revalidatePath("/dashboard/settings");
   revalidatePath("/company/settings");
-  return { ok: "Password updated." };
+  return { ok: "Password updated. Any other devices have been signed out." };
 }

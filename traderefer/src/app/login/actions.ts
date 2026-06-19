@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { createSession, landingPathForRole, verifyPassword } from "@/lib/auth";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 
 const LoginSchema = z.object({
   email: z.string().trim().email("Enter a valid email"),
@@ -19,6 +20,17 @@ export async function loginAction(
   _prev: LoginState,
   formData: FormData,
 ): Promise<LoginState> {
+  // Throttle by IP before any password work — caps single-source brute force.
+  const limited = await rateLimit("login", await clientIp(), {
+    limit: 12,
+    windowSec: 600,
+  });
+  if (!limited.ok) {
+    return {
+      formError: "Too many attempts. Please wait a few minutes and try again.",
+    };
+  }
+
   const parsed = LoginSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
