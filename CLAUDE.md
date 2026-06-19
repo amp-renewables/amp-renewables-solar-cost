@@ -353,17 +353,40 @@ psql "$(vercel env pull .env.production.local --environment=production --yes &>/
 - **2026-05-21**: Initial big push — Stripe live billing, www→apex
   middleware, /platform/companies, error boundaries, Stripe webhook,
   write-gate, Cloudflare email routing.
+- **2026-06-19**: Review-batch hardening. (1) Backup dump now AES-256-GCM
+  encrypted with a SEPARATE `BACKUP_ENCRYPTION_KEY` before upload (files
+  are `.json.enc`); cron REFUSES to write if the key is unset (no cleartext
+  PII to public Blob). Shared crypto helpers extracted in `lib/crypto.ts`
+  (`encryptBackup`/`decryptBackup`). (2) Postgres-backed IP rate limiting
+  (`lib/rate-limit.ts` + `RateLimit` model) on login / forgot-password /
+  both signups — FAILS OPEN. (3) Password change revokes other sessions
+  (`currentSessionId()` in auth.ts). (4) `markPayoutPaidAction` guards on
+  status=PENDING via atomic updateMany; `@@unique([referralId, type])` on
+  Payout; Stripe `incomplete` → PAST_DUE not ACTIVE; bank-nudge PENDING sum
+  scoped to company. (5) SEO: `app/robots.ts`, `app/sitemap.ts` (static +
+  active tenants, daily revalidate), per-tenant `generateMetadata` on
+  `/[slug]`, OG/Twitter + `metadataBase` in root layout, generated
+  `app/opengraph-image.tsx`, noindex on auth pages, `platform.url` default
+  → apex. (6) `lib/report-error.ts` emails NOTIFY_EMAIL on silent server
+  failures (Stripe webhook, backup cron) — pragmatic stand-in for Sentry.
 
 ## Open decisions / known gaps
 
 1. **Drop deprecated `User.role` / `User.companyId` columns** — kept
    through the 2026-06-11 multi-org migration for deploy safety. Once
    stable for a while, remove from schema + db push.
-2. **Rate limiting** on auth endpoints (login / forgot / signup) — not
-   yet in place.
-3. **Sentry / error monitoring** — not yet in place.
+2. **~~Rate limiting~~** — DONE 2026-06-19 (Postgres-backed, fails open).
+3. **Sentry / error monitoring** — partial: `reportError()` emails alerts
+   on critical server paths. Swap in `@sentry/nextjs` for full coverage
+   (incl. client + all routes) when traffic justifies it.
 4. **Solicitor review** of /terms and /privacy — they're flagged as
-   draft in the page footers.
+   draft in the page footers. NB: Terms §4 still references a "card on
+   file" the no-card trial never collects — fix in that pass.
+5. **`BACKUP_ENCRYPTION_KEY` must be set in Vercel** — the backup cron
+   skips (and alerts) until it is. Generate with the randomBytes(32) hex
+   one-liner; back it up OUTSIDE Vercel (losing it = unrecoverable
+   snapshots). Also purge any pre-2026-06-19 cleartext `.json` backup
+   blobs from Vercel Blob — they pre-date the encryption fix.
 
 ## Things to avoid
 
