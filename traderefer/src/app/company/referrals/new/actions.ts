@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { requireCompanyAdmin } from "@/lib/auth";
 import { getCompanyById } from "@/lib/company";
 import { assertCompanyCanWriteById } from "@/lib/stripe";
+import { sendLeadLoggedToPartnerEmail } from "@/lib/email";
 
 // Admin-entered lead. Same customer shape as the partner refer form, plus
 // a partnerId — the admin logs a lead that arrived off-platform (e.g. a
@@ -96,7 +97,7 @@ export async function addLeadAction(
       companyId: company.id,
       role: { in: ["BUSINESS_PARTNER", "AMBASSADOR"] },
     },
-    select: { userId: true },
+    select: { userId: true, user: { select: { email: true, fullName: true } } },
   });
   if (!membership) {
     return {
@@ -130,9 +131,19 @@ export async function addLeadAction(
     },
   });
 
-  // No company notification — the company is the one entering this. (The
-  // partner isn't emailed either; a "a lead was logged for you" nudge is
-  // a possible later addition.)
+  // No company notification — the company is the one entering this. But
+  // by default we DO tell the partner: many early leads are logged for
+  // them (they sent it by WhatsApp/phone), and the email reassures them
+  // it's captured and pulls them into the app's flow. The admin can
+  // suppress it (e.g. if they've already told them) by unticking the box.
+  if (formData.get("notifyPartner") === "1") {
+    await sendLeadLoggedToPartnerEmail(
+      { email: membership.user.email, fullName: membership.user.fullName },
+      company,
+      { customerName: d.customerName, services: d.services },
+    );
+  }
+
   revalidatePath("/company");
   revalidatePath("/company/referrals");
   redirect(`/company/referrals/${referral.id}?added=1`);

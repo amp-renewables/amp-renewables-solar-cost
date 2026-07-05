@@ -495,6 +495,117 @@ export async function sendInboundSmsForwardEmail(
 }
 
 /**
+ * Goes to a PARTNER when a COMPANY_ADMIN logs a lead on their behalf —
+ * e.g. a referral the partner sent by WhatsApp or phone rather than
+ * through the app. Reassures them it's captured and they'll be paid as it
+ * progresses, and nudges them into the app's own flow (see it tracked,
+ * add bank details). Branded as the company, same as the welcome email,
+ * because the partner's relationship is with the company, not TradeRefer.
+ */
+export async function sendLeadLoggedToPartnerEmail(
+  partner: { email: string; fullName: string | null },
+  company: CompanyPayload,
+  referral: { customerName: string; services: string[] },
+): Promise<void> {
+  if (!resend) {
+    console.warn(
+      `[email] no RESEND_API_KEY — lead-logged notice for ${partner.email} skipped`,
+    );
+    return;
+  }
+
+  const firstName = partner.fullName?.trim().split(/\s+/)[0] || "there";
+  const hasAppointment = Number(company.payoutAppointment) > 0;
+  const appointment = formatCompanyMoney(
+    company,
+    Number(company.payoutAppointment),
+  );
+  const job = formatCompanyMoney(company, Number(company.payoutJob));
+  const total = formatCompanyMoney(
+    company,
+    Number(company.payoutAppointment) + Number(company.payoutJob),
+  );
+  const referralsLink = `${APP_URL}/dashboard/referrals`;
+  const settingsLink = `${APP_URL}/dashboard/settings`;
+  const fromDisplay = company.name.replace(/["<>]/g, "");
+
+  const subject = `${company.name} has logged your referral — you're in line to earn ${hasAppointment ? total : job}`;
+
+  const dealRows = hasAppointment
+    ? `<tr><td style="padding:4px 16px 4px 0;color:#888;">Appointment booked</td><td style="padding:4px 0;font-weight:600;">${esc(appointment)}</td></tr>
+       <tr><td style="padding:4px 16px 4px 0;color:#888;">Job sells</td><td style="padding:4px 0;font-weight:600;">${esc(job)} more</td></tr>
+       <tr><td style="padding:4px 16px 4px 0;color:#888;">Per customer</td><td style="padding:4px 0;font-weight:600;color:${company.primaryColor};">up to ${esc(total)}</td></tr>`
+    : `<tr><td style="padding:4px 16px 4px 0;color:#888;">Job sells</td><td style="padding:4px 0;font-weight:600;color:${company.primaryColor};">${esc(job)}</td></tr>`;
+
+  const html = `
+    <div style="font-family:system-ui,sans-serif;color:#222;max-width:560px;">
+      <h2 style="color:${company.primaryColor};margin-bottom:8px;">
+        We've logged your referral, ${esc(firstName)}
+      </h2>
+      <p style="color:#444;line-height:1.5;">
+        <strong>${esc(company.name)}</strong> has logged the customer you
+        passed on — <strong>${esc(referral.customerName)}</strong>${
+          referral.services.length
+            ? ` (${esc(referral.services.join(", "))})`
+            : ""
+        }. It's now tracked in your ${esc(platform.name)} account, and you'll
+        be paid as it moves forward.
+      </p>
+      <table style="border-collapse:collapse;font-size:14px;margin:20px 0;">
+        ${dealRows}
+      </table>
+      <p style="color:#444;line-height:1.5;">
+        You don't need to do anything — ${esc(company.name)} will contact the
+        customer and take it from here. You can follow its progress any time:
+      </p>
+      <p style="margin-top:20px;">
+        <a href="${referralsLink}" style="background:${company.primaryColor};color:#fff;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:500;display:inline-block;">See your referrals</a>
+      </p>
+      <p style="margin-top:28px;color:#999;font-size:12px;">
+        Make sure your <a href="${settingsLink}" style="color:${company.primaryColor};">bank details</a>
+        are in so ${esc(company.name)} can pay you when this lands — they're
+        encrypted and only ${esc(company.name)} can see them. Not the customer
+        you sent? Just reply to this email and we'll put it right.
+      </p>
+    </div>
+  `;
+
+  const text = [
+    `We've logged your referral, ${firstName}`,
+    ``,
+    `${company.name} has logged the customer you passed on — ${referral.customerName}${referral.services.length ? ` (${referral.services.join(", ")})` : ""}. It's now tracked in your ${platform.name} account, and you'll be paid as it moves forward.`,
+    ``,
+    ...(hasAppointment
+      ? [
+          `Appointment booked:  ${appointment}`,
+          `Job sells:           ${job} more`,
+          `Per customer:        up to ${total}`,
+        ]
+      : [`Job sells:           ${job}`]),
+    ``,
+    `You don't need to do anything — ${company.name} will contact the customer and take it from here.`,
+    ``,
+    `See your referrals: ${referralsLink}`,
+    ``,
+    `Make sure your bank details are in so ${company.name} can pay you: ${settingsLink}`,
+    `Not the customer you sent? Just reply to this email and we'll put it right.`,
+  ].join("\n");
+
+  try {
+    await resend.emails.send({
+      from: `${fromDisplay} <${FROM_EMAIL}>`,
+      to: partner.email,
+      replyTo: company.contactEmail,
+      subject,
+      html,
+      text,
+    });
+  } catch (err) {
+    console.error("[email] lead-logged-to-partner failed:", err);
+  }
+}
+
+/**
  * Goes to a PARTNER the moment a payout goes PENDING for them while
  * they have no bank details on file. This is the "Sarah refers a
  * customer, the appointment books, £50 sits unpayable, Sarah ghosts"

@@ -189,6 +189,27 @@ export function AddLeadForm({
         )}
       </div>
 
+      {/* Default ON — the whole point of logging a partner's WhatsApp lead
+          is to pull them into the process, and the email does that. Admin
+          can untick if they've already told the partner directly. */}
+      <label className="flex items-start gap-3 cursor-pointer bg-white border border-slate-200 rounded-xl p-4">
+        <input
+          type="checkbox"
+          name="notifyPartner"
+          value="1"
+          defaultChecked
+          className="mt-0.5 accent-emerald-700 h-5 w-5 flex-shrink-0"
+        />
+        <span className="text-sm text-slate-700">
+          <strong>Email the partner to let them know</strong> their lead is
+          logged.
+          <span className="block text-xs text-slate-500 mt-1">
+            Confirms it&apos;s captured, shows the deal, and links them to
+            their referrals — good for getting them used to the process.
+          </span>
+        </span>
+      </label>
+
       <button
         type="submit"
         disabled={pending}
