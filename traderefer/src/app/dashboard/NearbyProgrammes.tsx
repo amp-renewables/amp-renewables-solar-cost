@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { formatCompanyMoney, payoutsForCompany } from "@/lib/company";
 import { milesBetween, SUGGESTION_RADIUS_MILES } from "@/lib/geo";
+import { canCompanyWrite } from "@/lib/stripe";
 
 // "Programmes near you" — other companies on the platform within 50
 // miles that this referrer hasn't joined yet. The network-effect play:
@@ -67,10 +68,21 @@ export async function NearbyProgrammes({
       payoutJob: true,
       currencySymbol: true,
       services: true,
+      // Needed to weed out programmes that can't actually operate — see
+      // the canCompanyWrite filter below.
+      status: true,
+      isComped: true,
+      trialEndsAt: true,
     },
   });
 
   const nearby = candidates
+    // A raw status of TRIAL/ACTIVE isn't enough: an EXPIRED trial keeps
+    // status="TRIAL" but is write-gated and can't take referrals. Only
+    // suggest programmes that can actually operate, using the same gate
+    // the rest of the app enforces — otherwise a partner joins a dead
+    // programme (this is how a lapsed test tenant leaked into discovery).
+    .filter((c) => canCompanyWrite(c))
     .map((c) => ({
       company: c,
       // latitude/longitude are non-null by the where clause above.
