@@ -88,7 +88,16 @@ export default async function CompanyReferralsPage({
         <h1 className="text-2xl font-bold text-brand">
           {showArchived ? "Archived referrals" : "All referrals"}
         </h1>
-        <div className="flex gap-1 text-sm">
+        <div className="flex items-center gap-3">
+          {!locked && (
+            <Link
+              href="/company/referrals/new"
+              className="btn-primary rounded-lg px-4 py-1.5 text-sm font-medium whitespace-nowrap"
+            >
+              Add a lead
+            </Link>
+          )}
+          <div className="flex gap-1 text-sm">
           <Link
             href="/company/referrals"
             className={`px-3 py-1.5 rounded-lg border ${
@@ -118,6 +127,7 @@ export default async function CompanyReferralsPage({
               </span>
             )}
           </Link>
+          </div>
         </div>
       </div>
 

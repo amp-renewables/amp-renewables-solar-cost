@@ -15,13 +15,16 @@ import { ConfirmDeleteButton } from "./ConfirmDeleteButton";
 
 export default async function CompanyReferralDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ added?: string }>;
 }) {
   const admin = await requireCompanyAdmin();
   const company = await getCurrentCompany();
   if (!company) notFound();
   const { id } = await params;
+  const justAdded = (await searchParams).added === "1";
 
   const referral = await prisma.referral.findUnique({
     where: { id },
@@ -117,6 +120,16 @@ export default async function CompanyReferralDetailPage({
           <StatusBadge status={referral.status} />
         </div>
       </div>
+
+      {justAdded && (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl px-5 py-3 text-sm">
+          Lead logged and attributed to{" "}
+          <strong>
+            {referral.partner.businessName || referral.partner.fullName}
+          </strong>
+          . Set its status below as it progresses.
+        </div>
+      )}
 
       {isArchived && (
         <div className="bg-slate-100 border border-slate-200 rounded-xl px-5 py-3 flex items-center justify-between gap-3 flex-wrap text-sm">
