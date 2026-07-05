@@ -7,7 +7,10 @@ import { prisma } from "@/lib/db";
 import { requireCompanyAdmin } from "@/lib/auth";
 import { getCompanyById } from "@/lib/company";
 import { assertCompanyCanWriteById } from "@/lib/stripe";
-import { sendLeadLoggedToPartnerEmail } from "@/lib/email";
+import {
+  sendLeadLoggedToPartnerEmail,
+  sendNewReferralNotification,
+} from "@/lib/email";
 
 // Admin-entered lead. Same customer shape as the partner refer form, plus
 // a partnerId — the admin logs a lead that arrived off-platform (e.g. a
@@ -97,7 +100,17 @@ export async function addLeadAction(
       companyId: company.id,
       role: { in: ["BUSINESS_PARTNER", "AMBASSADOR"] },
     },
-    select: { userId: true, user: { select: { email: true, fullName: true } } },
+    select: {
+      userId: true,
+      user: {
+        select: {
+          email: true,
+          fullName: true,
+          businessName: true,
+          phone: true,
+        },
+      },
+    },
   });
   if (!membership) {
     return {
@@ -131,17 +144,45 @@ export async function addLeadAction(
     },
   });
 
-  // No company notification — the company is the one entering this. But
-  // by default we DO tell the partner: many early leads are logged for
+  const partner = {
+    id: membership.userId,
+    email: membership.user.email,
+    fullName: membership.user.fullName,
+    businessName: membership.user.businessName,
+    phone: membership.user.phone,
+  };
+
+  // Notify the company inbox on every admin-logged lead — same full
+  // notification a partner's own submission sends, so the company's
+  // "new referral" stream is consistent however the lead arrived. (The
+  // lead only gets here when the company canWrite, so the full email is
+  // always appropriate — no locked-teaser variant needed.)
+  await sendNewReferralNotification(
+    {
+      id: referral.id,
+      customerName: referral.customerName,
+      customerPhone: referral.customerPhone,
+      customerEmail: referral.customerEmail,
+      addressLine1: referral.addressLine1,
+      addressLine2: referral.addressLine2,
+      city: referral.city,
+      postcode: referral.postcode,
+      services: referral.services,
+      notes: referral.notes,
+    },
+    partner,
+    company,
+  );
+
+  // By default we also tell the PARTNER: many early leads are logged for
   // them (they sent it by WhatsApp/phone), and the email reassures them
   // it's captured and pulls them into the app's flow. The admin can
   // suppress it (e.g. if they've already told them) by unticking the box.
   if (formData.get("notifyPartner") === "1") {
-    await sendLeadLoggedToPartnerEmail(
-      { email: membership.user.email, fullName: membership.user.fullName },
-      company,
-      { customerName: d.customerName, services: d.services },
-    );
+    await sendLeadLoggedToPartnerEmail(partner, company, {
+      customerName: d.customerName,
+      services: d.services,
+    });
   }
 
   revalidatePath("/company");
