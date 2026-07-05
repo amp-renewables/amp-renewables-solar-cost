@@ -338,6 +338,20 @@ psql "$(vercel env pull .env.production.local --environment=production --yes &>/
 
 ## Recent significant changes (worth knowing before editing)
 
+- **2026-07-05**: Admin "Add a lead" — a COMPANY_ADMIN can log an
+  off-platform referral (WhatsApp/phone) and attribute it to an
+  already-enrolled partner. New `/company/referrals/new` (page +
+  `AddLeadForm` + `addLeadAction`): write-gated, validates the chosen
+  partner is a real BUSINESS_PARTNER/AMBASSADOR membership of the company
+  before trusting the posted id, creates a SUBMITTED referral with a
+  "Logged by admin" status event. "Add a lead" button on the referrals
+  list; success banner on the detail page it redirects to. New email
+  `sendLeadLoggedToPartnerEmail` (branded as the company) tells the
+  partner it's logged — ON by default via a `notifyPartner` checkbox on
+  the form. Also a UI-polish pass: top-nav active-state (new `NavTabs`
+  client component using usePathname, accent underline), signup left-panel
+  layout/hierarchy, and hardcoded `emerald-*` dark-panel subtext swapped
+  for brand-neutral `white/N` (the semantic success/status greens stay).
 - **2026-06-11**: Multi-org Membership model + Ambassador role. Session
   carries an active membership; org switcher in nav; type picker on
   partner signup; per-company ambassador rates + accepts-toggles in
