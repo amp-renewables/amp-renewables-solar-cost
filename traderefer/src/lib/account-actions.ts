@@ -1,13 +1,38 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "./db";
 import {
+  currentSessionId,
   hashPassword,
+  landingPathForRole,
   requireUser,
+  setActiveMembership,
   verifyPassword,
 } from "./auth";
+
+// Org switcher in the nav. Value "platform" (superadmin only) clears the
+// active membership; anything else must be one of the user's membership
+// ids — setActiveMembership validates ownership and no-ops otherwise.
+export async function switchMembershipAction(formData: FormData) {
+  const raw = formData.get("membershipId");
+  const membershipId =
+    typeof raw === "string" && raw && raw !== "platform" ? raw : null;
+
+  const user = await setActiveMembership(membershipId);
+  if (!user) redirect("/login");
+
+  const target = membershipId
+    ? user.memberships.find((m) => m.id === membershipId)
+    : null;
+  redirect(
+    landingPathForRole(
+      target ? target.role : user.isSuperadmin ? "SUPERADMIN" : user.role,
+    ),
+  );
+}
 
 const ChangePasswordSchema = z
   .object({
@@ -68,7 +93,16 @@ export async function changePasswordAction(
     data: { hashedPassword: newHash },
   });
 
+  // Revoke every OTHER session — a password change is the standard response
+  // to suspected compromise, so any cookie on another device must stop
+  // working. Keep the current session so the user isn't logged out mid-flow.
+  // Mirrors resetPasswordAction (which deletes all sessions + re-issues).
+  const sid = await currentSessionId();
+  await prisma.session.deleteMany({
+    where: { userId: user.id, ...(sid ? { NOT: { id: sid } } : {}) },
+  });
+
   revalidatePath("/dashboard/settings");
   revalidatePath("/company/settings");
-  return { ok: "Password updated." };
+  return { ok: "Password updated. Any other devices have been signed out." };
 }

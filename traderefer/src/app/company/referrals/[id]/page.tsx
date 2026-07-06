@@ -3,19 +3,28 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireCompanyAdmin } from "@/lib/auth";
 import { getCurrentCompany, formatCompanyMoney } from "@/lib/company";
+import { companyWriteGate } from "@/lib/stripe";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ALL_STATUSES, STATUS_LABELS } from "@/lib/status";
-import { updateReferralStatusAction } from "./actions";
+import {
+  updateReferralStatusAction,
+  toggleArchiveReferralAction,
+  deleteReferralAction,
+} from "./actions";
+import { ConfirmDeleteButton } from "./ConfirmDeleteButton";
 
 export default async function CompanyReferralDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ added?: string }>;
 }) {
   const admin = await requireCompanyAdmin();
   const company = await getCurrentCompany();
   if (!company) notFound();
   const { id } = await params;
+  const justAdded = (await searchParams).added === "1";
 
   const referral = await prisma.referral.findUnique({
     where: { id },
@@ -26,6 +35,60 @@ export default async function CompanyReferralDetailPage({
     },
   });
   if (!referral || referral.companyId !== admin.companyId) notFound();
+
+  const isArchived = Boolean(referral.archivedAt);
+  const hasPaidPayouts = referral.payouts.some((p) => p.status === "PAID");
+
+  // Lapsed account: the referral exists and the partner is named, but
+  // every customer detail stays locked behind reactivation. The status
+  // actions are write-gated server-side anyway, so the controls are
+  // hidden rather than left to fail on submit.
+  const locked = !companyWriteGate(company).canWrite;
+  if (locked) {
+    const partnerDisplay =
+      referral.partner.businessName || referral.partner.fullName || "A partner";
+    return (
+      <div className="space-y-6 max-w-2xl">
+        <div>
+          <Link
+            href="/company/referrals"
+            className="text-sm text-slate-500 hover:underline"
+          >
+            ← All referrals
+          </Link>
+          <div className="flex items-start justify-between flex-wrap gap-3 mt-2">
+            <div>
+              <h1 className="text-2xl font-bold text-brand">
+                Referral from {partnerDisplay}
+              </h1>
+              <p className="text-slate-600 text-sm">
+                Sent {referral.createdAt.toLocaleDateString("en-GB")}
+              </p>
+            </div>
+            <StatusBadge status={referral.status} />
+          </div>
+        </div>
+
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6">
+          <h2 className="font-semibold text-amber-900 mb-2">
+            Customer details locked
+          </h2>
+          <p className="text-sm text-amber-900 mb-4">
+            Your account is paused, so this customer&apos;s name and
+            contact details are hidden. The referral is saved and waiting
+            — reactivate to see who they are and get in touch while the
+            lead is warm.
+          </p>
+          <Link
+            href="/company/billing"
+            className="btn-primary inline-block rounded-lg px-5 py-2.5 text-sm font-medium"
+          >
+            Reactivate your account →
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -38,24 +101,53 @@ export default async function CompanyReferralDetailPage({
         </Link>
         <div className="flex items-start justify-between flex-wrap gap-3 mt-2">
           <div>
-            <h1
-              className="text-2xl font-bold text-brand"
-              style={{ fontFamily: "Fraunces, serif" }}
-            >
+            <h1 className="text-2xl font-bold text-brand">
               {referral.customerName}
             </h1>
             <p className="text-slate-600 text-sm">
               Referred by{" "}
               <span className="font-medium">
-                {referral.partner.businessName}
-              </span>{" "}
-              ({referral.partner.fullName}) on{" "}
-              {referral.createdAt.toLocaleDateString("en-GB")}
+                {referral.partner.businessName || referral.partner.fullName}
+              </span>
+              {/* Only show the person in brackets when the headline name
+                  was a business — avoids "Dave Smith (Dave Smith)". */}
+              {referral.partner.businessName && referral.partner.fullName
+                ? ` (${referral.partner.fullName})`
+                : ""}{" "}
+              on {referral.createdAt.toLocaleDateString("en-GB")}
             </p>
           </div>
           <StatusBadge status={referral.status} />
         </div>
       </div>
+
+      {justAdded && (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl px-5 py-3 text-sm">
+          Lead logged and attributed to{" "}
+          <strong>
+            {referral.partner.businessName || referral.partner.fullName}
+          </strong>
+          . Set its status below as it progresses.
+        </div>
+      )}
+
+      {isArchived && (
+        <div className="bg-slate-100 border border-slate-200 rounded-xl px-5 py-3 flex items-center justify-between gap-3 flex-wrap text-sm">
+          <span className="text-slate-700">
+            <strong>This referral is archived.</strong> Hidden from the main
+            list, but still tracked in your reports.
+          </span>
+          <form action={toggleArchiveReferralAction}>
+            <input type="hidden" name="referralId" value={referral.id} />
+            <button
+              type="submit"
+              className="text-brand font-medium underline text-sm"
+            >
+              Restore →
+            </button>
+          </form>
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
@@ -75,27 +167,38 @@ export default async function CompanyReferralDetailPage({
             <Row
               label="Email"
               value={
-                <a
-                  href={`mailto:${referral.customerEmail}`}
-                  className="text-brand underline"
-                >
-                  {referral.customerEmail}
-                </a>
+                referral.customerEmail ? (
+                  <a
+                    href={`mailto:${referral.customerEmail}`}
+                    className="text-brand underline"
+                  >
+                    {referral.customerEmail}
+                  </a>
+                ) : (
+                  <span className="text-slate-400">
+                    Not provided — ask when you call
+                  </span>
+                )
               }
             />
             <Row
               label="Address"
               value={
                 <>
-                  {referral.addressLine1}
-                  {referral.addressLine2 && (
+                  {referral.addressLine1 && (
                     <>
+                      {referral.addressLine1}
                       <br />
-                      {referral.addressLine2}
                     </>
                   )}
-                  <br />
-                  {referral.city}, {referral.postcode}
+                  {referral.addressLine2 && (
+                    <>
+                      {referral.addressLine2}
+                      <br />
+                    </>
+                  )}
+                  {referral.city ? `${referral.city}, ` : ""}
+                  {referral.postcode}
                 </>
               }
             />
@@ -264,8 +367,12 @@ export default async function CompanyReferralDetailPage({
 
           <Card title="Partner">
             <div className="text-sm space-y-1">
-              <div className="font-medium">{referral.partner.businessName}</div>
-              <div>{referral.partner.fullName}</div>
+              <div className="font-medium">
+                {referral.partner.businessName || referral.partner.fullName}
+              </div>
+              {referral.partner.businessName && (
+                <div>{referral.partner.fullName}</div>
+              )}
               <div>
                 <a
                   href={`mailto:${referral.partner.email}`}
@@ -284,11 +391,65 @@ export default async function CompanyReferralDetailPage({
               </div>
             </div>
           </Card>
+
+          {/* Two destructive-ish actions kept in their own card at the bottom
+              so they're not mixed in with status updates. Archive is the safe
+              option (reversible); Delete is hidden behind a confirm and
+              blocked entirely when any payout is PAID. */}
+          <Card title="Manage referral">
+            <div className="space-y-3 text-sm">
+              <form action={toggleArchiveReferralAction}>
+                <input type="hidden" name="referralId" value={referral.id} />
+                <button
+                  type="submit"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50 text-slate-800"
+                >
+                  {isArchived ? "Restore from archive" : "Archive"}
+                </button>
+                <p className="text-xs text-slate-500 mt-1.5">
+                  {isArchived
+                    ? "Brings this referral back into your active list."
+                    : "Hides from your default list. Reversible. Doesn't affect payouts."}
+                </p>
+              </form>
+
+              {hasPaidPayouts ? (
+                <div className="pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    disabled
+                    className="w-full rounded-lg border border-rose-200 px-3 py-2 text-sm font-medium text-rose-300 cursor-not-allowed"
+                    title="Can't delete a referral with paid payouts"
+                  >
+                    Delete (blocked)
+                  </button>
+                  <p className="text-xs text-slate-500 mt-1.5">
+                    Can&apos;t delete — there&apos;s a paid payout on
+                    record. Archive it instead to keep the accounting
+                    trail intact.
+                  </p>
+                </div>
+              ) : (
+                <form
+                  action={deleteReferralAction}
+                  className="pt-2 border-t border-slate-100"
+                >
+                  <input type="hidden" name="referralId" value={referral.id} />
+                  <ConfirmDeleteButton />
+                  <p className="text-xs text-slate-500 mt-1.5">
+                    Permanent. Removes the referral and all its payouts and
+                    status history. No undo.
+                  </p>
+                </form>
+              )}
+            </div>
+          </Card>
         </div>
       </div>
     </div>
   );
 }
+
 
 function Card({
   title,

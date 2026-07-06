@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- TradeRefer favicon. Slate background (#1e293b) with the brand's
+       amber accent (#f59e0b) "tR" mark. Next.js auto-detects this file
+       at app/icon.svg and serves it as the favicon at /icon.svg, plus
+       wires up the <link rel="icon"> tags in <head>. -->
+  <rect width="32" height="32" rx="6" fill="#1e293b"/>
+  <text
+    x="16"
+    y="22.5"
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
+    font-size="18"
+    font-weight="900"
+    fill="#f59e0b"
+    text-anchor="middle"
+    letter-spacing="-0.5">tR</text>
+</svg>

@@ -23,7 +23,6 @@ export default async function PlatformOverviewPage() {
     <div className="space-y-8">
       <h1
         className="text-2xl font-bold text-brand"
-        style={{ fontFamily: "Fraunces, serif" }}
       >
         {platform.name} platform overview
       </h1>

@@ -1,10 +1,14 @@
 import crypto from "node:crypto";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getSessionUser, landingPathForRole } from "@/lib/auth";
 import { Logo } from "@/components/Logo";
 import { ResetPasswordForm } from "./ResetPasswordForm";
+
+// Auth pages are functional, not content — keep them out of the index.
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 function hashToken(raw: string): string {
   return crypto.createHash("sha256").update(raw).digest("hex");
@@ -16,7 +20,7 @@ export default async function ResetPasswordPage({
   searchParams: Promise<{ token?: string }>;
 }) {
   const user = await getSessionUser();
-  if (user) redirect(landingPathForRole(user.role));
+  if (user && user.role) redirect(landingPathForRole(user.role));
 
   const sp = await searchParams;
   const token = (sp.token ?? "").trim();

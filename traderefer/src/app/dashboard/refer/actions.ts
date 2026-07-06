@@ -6,18 +6,40 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requirePartner } from "@/lib/auth";
 import { getCompanyById } from "@/lib/company";
-import { sendNewReferralNotification } from "@/lib/email";
+import { companyWriteGate } from "@/lib/stripe";
+import {
+  sendNewReferralNotification,
+  sendLockedReferralNotification,
+} from "@/lib/email";
 
 const ReferralSchema = z.object({
+  // Name + phone + postcode are the only required customer fields — a
+  // tradesman referring from a van has the number and roughly where the
+  // job is. Email and full address are optional; the company collects
+  // them on the follow-up call.
   customerName: z.string().trim().min(2, "Customer name required"),
   customerPhone: z.string().trim().min(7, "Customer phone required"),
-  customerEmail: z.string().trim().email("Valid customer email required"),
-  addressLine1: z.string().trim().min(2, "Address line 1 required"),
+  customerEmail: z
+    .string()
+    .trim()
+    .email("That email doesn't look right")
+    .optional()
+    .or(z.literal("")),
+  addressLine1: z.string().trim().optional(),
   addressLine2: z.string().trim().optional(),
-  city: z.string().trim().min(2, "City required"),
+  city: z.string().trim().optional(),
   postcode: z.string().trim().min(3, "Postcode required"),
   services: z.array(z.string()).min(1, "Pick at least one service"),
   notes: z.string().trim().optional(),
+  // Hard requirement under UK data protection rules — the partner must
+  // tick the box confirming customer consent before we'll accept the
+  // referral. The literal "1" comes from the checkbox value on the form.
+  customerConsentConfirmed: z.literal("1", {
+    errorMap: () => ({
+      message:
+        "You must confirm the customer has given you permission to share their details.",
+    }),
+  }),
 });
 
 export type ReferState = {
@@ -32,6 +54,12 @@ export async function submitReferralAction(
   const user = await requirePartner();
   const company = await getCompanyById(user.companyId);
   if (!company) return { formError: "Company not found." };
+  // Deliberately NOT write-gated: partners can keep submitting referrals
+  // to a lapsed company. The referral is stored as normal but the company
+  // gets a locked teaser email instead of the customer's details — real
+  // demand piling up is the strongest reason to reactivate. The company
+  // side stays read-locked until billing is sorted.
+  const gate = companyWriteGate(company);
 
   const services = formData.getAll("services").map(String).filter(Boolean);
   const validServiceSet = new Set(company.services);
@@ -40,13 +68,18 @@ export async function submitReferralAction(
   const parsed = ReferralSchema.safeParse({
     customerName: formData.get("customerName"),
     customerPhone: formData.get("customerPhone"),
-    customerEmail: formData.get("customerEmail"),
-    addressLine1: formData.get("addressLine1"),
+    // The optional-details section is collapsed by default, so these
+    // fields may be absent from the FormData entirely. formData.get()
+    // returns null in that case — coerce to undefined so Zod's
+    // .optional() accepts it (optional means undefined, not null).
+    customerEmail: formData.get("customerEmail") || undefined,
+    addressLine1: formData.get("addressLine1") || undefined,
     addressLine2: formData.get("addressLine2") || undefined,
-    city: formData.get("city"),
+    city: formData.get("city") || undefined,
     postcode: formData.get("postcode"),
     services: filteredServices,
     notes: formData.get("notes") || undefined,
+    customerConsentConfirmed: formData.get("customerConsentConfirmed"),
   });
 
   if (!parsed.success) {
@@ -67,13 +100,17 @@ export async function submitReferralAction(
       partnerId: user.id,
       customerName: d.customerName,
       customerPhone: d.customerPhone,
-      customerEmail: d.customerEmail.toLowerCase(),
-      addressLine1: d.addressLine1,
+      customerEmail: d.customerEmail ? d.customerEmail.toLowerCase() : null,
+      addressLine1: d.addressLine1 || null,
       addressLine2: d.addressLine2 || null,
-      city: d.city,
+      city: d.city || null,
       postcode: d.postcode.toUpperCase(),
       services: d.services,
       notes: d.notes || null,
+      // The schema's `literal("1")` validator above guarantees we only
+      // reach here when the partner ticked the box — record the consent.
+      customerConsentConfirmed: true,
+      customerConsentConfirmedAt: new Date(),
       status: "SUBMITTED",
       statusHistory: {
         create: { toStatus: "SUBMITTED", changedBy: user.id },
@@ -92,22 +129,26 @@ export async function submitReferralAction(
     },
   });
   if (partner) {
-    await sendNewReferralNotification(
-      {
-        id: referral.id,
-        customerName: referral.customerName,
-        customerPhone: referral.customerPhone,
-        customerEmail: referral.customerEmail,
-        addressLine1: referral.addressLine1,
-        addressLine2: referral.addressLine2,
-        city: referral.city,
-        postcode: referral.postcode,
-        services: referral.services,
-        notes: referral.notes,
-      },
-      partner,
-      company,
-    );
+    if (gate.canWrite) {
+      await sendNewReferralNotification(
+        {
+          id: referral.id,
+          customerName: referral.customerName,
+          customerPhone: referral.customerPhone,
+          customerEmail: referral.customerEmail,
+          addressLine1: referral.addressLine1,
+          addressLine2: referral.addressLine2,
+          city: referral.city,
+          postcode: referral.postcode,
+          services: referral.services,
+          notes: referral.notes,
+        },
+        partner,
+        company,
+      );
+    } else {
+      await sendLockedReferralNotification(partner, company);
+    }
   }
 
   revalidatePath("/dashboard");

@@ -1,12 +1,16 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionUser, landingPathForRole } from "@/lib/auth";
 import { Logo } from "@/components/Logo";
 import { LoginForm } from "./LoginForm";
 
+// Auth pages are functional, not content — keep them out of the index.
+export const metadata: Metadata = { robots: { index: false, follow: false } };
+
 export default async function LoginPage() {
   const user = await getSessionUser();
-  if (user) redirect(landingPathForRole(user.role));
+  if (user && user.role) redirect(landingPathForRole(user.role));
 
   return (
     <div className="min-h-screen flex flex-col">

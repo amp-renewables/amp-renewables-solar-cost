@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireCompanyAdmin } from "@/lib/auth";
+import { getCurrentCompany } from "@/lib/company";
+import { companyWriteGate } from "@/lib/stripe";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ALL_STATUSES, STATUS_LABELS } from "@/lib/status";
 import type { ReferralStatus } from "@prisma/client";
@@ -8,7 +10,12 @@ import type { ReferralStatus } from "@prisma/client";
 export default async function CompanyReferralsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; q?: string }>;
+  searchParams: Promise<{
+    status?: string;
+    q?: string;
+    view?: string;
+    deleted?: string;
+  }>;
 }) {
   const user = await requireCompanyAdmin();
   const sp = await searchParams;
@@ -16,40 +23,119 @@ export default async function CompanyReferralsPage({
     ? (sp.status as ReferralStatus)
     : null;
   const q = (sp.q ?? "").trim();
+  const showArchived = sp.view === "archived";
+  const justDeleted = sp.deleted === "1";
 
-  const referrals = await prisma.referral.findMany({
-    where: {
-      companyId: user.companyId,
-      ...(statusFilter ? { status: statusFilter } : {}),
-      ...(q
-        ? {
-            OR: [
-              { customerName: { contains: q, mode: "insensitive" } },
-              { customerEmail: { contains: q, mode: "insensitive" } },
-              { customerPhone: { contains: q } },
-              { postcode: { contains: q, mode: "insensitive" } },
-              {
-                partner: {
-                  businessName: { contains: q, mode: "insensitive" },
+  // Quick count of archived rows so the tab can show a number next to the
+  // label. Avoids the 'is anything actually archived?' guessing game.
+  const [referrals, archivedCount] = await Promise.all([
+    prisma.referral.findMany({
+      where: {
+        companyId: user.companyId,
+        // Default view hides archived; the 'Archived' tab inverts.
+        archivedAt: showArchived ? { not: null } : null,
+        ...(statusFilter ? { status: statusFilter } : {}),
+        ...(q
+          ? {
+              OR: [
+                { customerName: { contains: q, mode: "insensitive" } },
+                { customerEmail: { contains: q, mode: "insensitive" } },
+                { customerPhone: { contains: q } },
+                { postcode: { contains: q, mode: "insensitive" } },
+                {
+                  partner: {
+                    businessName: { contains: q, mode: "insensitive" },
+                  },
                 },
-              },
-            ],
-          }
-        : {}),
-    },
-    orderBy: { createdAt: "desc" },
-    include: { partner: true, payouts: true },
-    take: 200,
-  });
+              ],
+            }
+          : {}),
+      },
+      orderBy: { createdAt: "desc" },
+      include: { partner: true, payouts: true },
+      take: 200,
+    }),
+    prisma.referral.count({
+      where: { companyId: user.companyId, archivedAt: { not: null } },
+    }),
+  ]);
+
+  // Lapsed accounts (expired trial / past due / cancelled) see that
+  // referrals exist — who sent them and when — but customer details
+  // stay locked behind reactivation. Matches the teaser email partners'
+  // submissions trigger while the account is paused.
+  const company = await getCurrentCompany();
+  const locked = company ? !companyWriteGate(company).canWrite : false;
 
   return (
     <div className="space-y-6">
-      <h1
-        className="text-2xl font-bold text-brand"
-        style={{ fontFamily: "Fraunces, serif" }}
-      >
-        All referrals
-      </h1>
+      {locked && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 flex items-center justify-between gap-3 flex-wrap">
+          <div className="text-sm text-amber-900">
+            <strong>Your account is paused.</strong> Referrals are still
+            coming in and nothing is lost — reactivate to see customer
+            details and pick them up.
+          </div>
+          <Link
+            href="/company/billing"
+            className="btn-primary rounded-lg px-4 py-2 text-sm font-medium whitespace-nowrap"
+          >
+            Reactivate →
+          </Link>
+        </div>
+      )}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h1 className="text-2xl font-bold text-brand">
+          {showArchived ? "Archived referrals" : "All referrals"}
+        </h1>
+        <div className="flex items-center gap-3">
+          {!locked && (
+            <Link
+              href="/company/referrals/new"
+              className="btn-primary rounded-lg px-4 py-1.5 text-sm font-medium whitespace-nowrap"
+            >
+              Add a lead
+            </Link>
+          )}
+          <div className="flex gap-1 text-sm">
+          <Link
+            href="/company/referrals"
+            className={`px-3 py-1.5 rounded-lg border ${
+              !showArchived
+                ? "bg-brand text-white border-transparent"
+                : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            Active
+          </Link>
+          <Link
+            href="/company/referrals?view=archived"
+            className={`px-3 py-1.5 rounded-lg border ${
+              showArchived
+                ? "bg-brand text-white border-transparent"
+                : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
+            }`}
+          >
+            Archived
+            {archivedCount > 0 && (
+              <span
+                className={`ml-1.5 text-xs ${
+                  showArchived ? "opacity-80" : "text-slate-500"
+                }`}
+              >
+                ({archivedCount})
+              </span>
+            )}
+          </Link>
+          </div>
+        </div>
+      </div>
+
+      {justDeleted && (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl px-5 py-3 text-sm">
+          Referral deleted.
+        </div>
+      )}
 
       <form className="bg-white border border-slate-200 rounded-xl p-4 flex flex-wrap gap-3 items-end">
         <label className="flex-1 min-w-[200px]">
@@ -111,13 +197,21 @@ export default async function CompanyReferralsPage({
             {referrals.map((r) => (
               <tr key={r.id} className="align-top">
                 <td className="px-4 py-3">
-                  <div className="font-medium">{r.customerName}</div>
-                  <div className="text-xs text-slate-500">
-                    {r.customerPhone}
-                  </div>
+                  {locked ? (
+                    <div className="text-slate-400 italic text-sm">
+                      Locked — reactivate to view
+                    </div>
+                  ) : (
+                    <>
+                      <div className="font-medium">{r.customerName}</div>
+                      <div className="text-xs text-slate-500">
+                        {r.customerPhone}
+                      </div>
+                    </>
+                  )}
                 </td>
                 <td className="px-4 py-3 hidden sm:table-cell text-slate-600">
-                  {r.partner.businessName}
+                  {r.partner.businessName || r.partner.fullName}
                 </td>
                 <td className="px-4 py-3 hidden md:table-cell text-slate-600 text-xs">
                   {r.services.join(", ")}

@@ -10,11 +10,14 @@ type Props = {
     contactPhone: string | null;
     websiteUrl: string | null;
     addressLine: string | null;
+    postcode: string | null;
     heroSubheading: string | null;
     primaryColor: string;
     accentColor: string;
     payoutAppointment: number;
     payoutJob: number;
+    acceptsBusinessPartners: boolean;
+    acceptsAmbassadors: boolean;
     services: string[];
   };
 };
@@ -47,6 +50,14 @@ export function SettingsForm({ company }: Props) {
           <Field label="Website (optional)" name="websiteUrl" defaultValue={company.websiteUrl ?? ""} placeholder="https://" />
           <Field label="Footer address (optional)" name="addressLine" defaultValue={company.addressLine ?? ""} />
         </div>
+        <Field
+          label="Postcode"
+          name="postcode"
+          defaultValue={company.postcode ?? ""}
+          placeholder="NE37 2SH"
+          hint="Used to show your programme to referrers near you — partners on other programmes within 50 miles see yours suggested."
+          error={state.errors?.postcode}
+        />
       </Section>
 
       <Section title="Landing page">
@@ -87,6 +98,7 @@ export function SettingsForm({ company }: Props) {
             step="0.01"
             defaultValue={String(company.payoutAppointment)}
             required
+            hint="Set to 0 if you only want to pay for sold jobs — your pages and emails adapt automatically."
             error={state.errors?.payoutAppointment}
           />
           <Field
@@ -107,6 +119,52 @@ export function SettingsForm({ company }: Props) {
           hint="What you cover, e.g. Solar PV, Battery Storage, EV Charger"
           error={state.errors?.servicesCsv}
         />
+      </Section>
+
+      <Section title="Who can refer to you">
+        <p className="text-sm text-slate-600 -mt-1">
+          Your signup page adapts to whoever you accept. Both types earn
+          the same payouts — a referral is worth the same to you whoever
+          sends it.
+        </p>
+        {state.errors?.referrerTypes && (
+          <div className="bg-rose-50 border border-rose-200 text-rose-800 rounded-lg px-3 py-2 text-sm">
+            {state.errors.referrerTypes}
+          </div>
+        )}
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            name="acceptsBusinessPartners"
+            defaultChecked={company.acceptsBusinessPartners}
+            className="mt-0.5 h-4 w-4 rounded border-slate-300"
+          />
+          <span>
+            <span className="block text-sm font-medium text-slate-700">
+              Businesses
+            </span>
+            <span className="block text-xs text-slate-500">
+              Trades, accountants, estate agents — anyone whose customers
+              could use you
+            </span>
+          </span>
+        </label>
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            name="acceptsAmbassadors"
+            defaultChecked={company.acceptsAmbassadors}
+            className="mt-0.5 h-4 w-4 rounded border-slate-300"
+          />
+          <span>
+            <span className="block text-sm font-medium text-slate-700">
+              Individual ambassadors
+            </span>
+            <span className="block text-xs text-slate-500">
+              Past customers and word-of-mouth referrers
+            </span>
+          </span>
+        </label>
       </Section>
 
       <button

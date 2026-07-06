@@ -1,11 +1,17 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireCompanyAdmin } from "@/lib/auth";
+import { assertCompanyCanWriteById } from "@/lib/stripe";
 import { expectedPayoutsForStatus } from "@/lib/payouts";
+import { sendBankDetailsNeededEmail, sendClaimRewardEmail } from "@/lib/email";
+import { sendSms } from "@/lib/sms";
+import { platform } from "@/lib/platform";
 import type { ReferralStatus } from "@prisma/client";
+import crypto from "crypto";
 
 const StatusSchema = z.object({
   referralId: z.string().min(1),
@@ -28,7 +34,8 @@ const StatusSchema = z.object({
 // records an audit event, and creates the right payouts idempotently.
 export async function updateReferralStatusAction(formData: FormData) {
   const admin = await requireCompanyAdmin();
-  const parsed = StatusSchema.parse({
+  await assertCompanyCanWriteById(admin.companyId);
+  const result = StatusSchema.safeParse({
     referralId: formData.get("referralId"),
     toStatus: formData.get("toStatus"),
     appointmentDate: formData.get("appointmentDate") || undefined,
@@ -36,6 +43,14 @@ export async function updateReferralStatusAction(formData: FormData) {
     rejectedReason: formData.get("rejectedReason") || undefined,
     note: formData.get("note") || undefined,
   });
+  if (!result.success) {
+    console.error(
+      "[updateReferralStatusAction] invalid form submission:",
+      result.error.flatten(),
+    );
+    throw new Error("Could not update referral — invalid form submission.");
+  }
+  const parsed = result.data;
 
   const existing = await prisma.referral.findUnique({
     where: { id: parsed.referralId },
@@ -45,6 +60,7 @@ export async function updateReferralStatusAction(formData: FormData) {
   if (existing.companyId !== admin.companyId) {
     throw new Error("Not authorised to modify this referral");
   }
+
 
   const now = new Date();
   const updates: Record<string, unknown> = { status: parsed.toStatus };
@@ -77,6 +93,10 @@ export async function updateReferralStatusAction(formData: FormData) {
   if (parsed.toStatus === "REJECTED") {
     updates.rejectedReason = parsed.rejectedReason || null;
   }
+
+  // Tracks money that became newly owed in this transaction — used to
+  // decide whether the partner needs the "add your bank details" nudge.
+  let newlyPendingAmount = 0;
 
   await prisma.$transaction(async (tx) => {
     await tx.referral.update({
@@ -111,11 +131,13 @@ export async function updateReferralStatusAction(formData: FormData) {
             status: "PENDING",
           },
         });
+        newlyPendingAmount += Number(e.amount);
       } else if (current.status === "CANCELLED") {
         await tx.payout.update({
           where: { id: current.id },
           data: { status: "PENDING", amount: e.amount },
         });
+        newlyPendingAmount += Number(e.amount);
       }
     }
 
@@ -130,8 +152,175 @@ export async function updateReferralStatusAction(formData: FormData) {
     }
   });
 
+  // BANK-DETAILS NUDGE: if this change put new money in the partner's
+  // pending column and they have nowhere to receive it, tell them now —
+  // while the win is fresh. Fire-and-forget; failures never block the
+  // status update (which has already committed).
+  if (newlyPendingAmount > 0) {
+    try {
+      const partner = await prisma.user.findUnique({
+        where: { id: existing.partnerId },
+        select: {
+          email: true,
+          fullName: true,
+          phone: true,
+          hashedPassword: true,
+          bankSortCode: true,
+          bankAccountNumber: true,
+        },
+      });
+      const needsBank =
+        partner && (!partner.bankSortCode || !partner.bankAccountNumber);
+      if (partner && needsBank) {
+        const pendingAgg = await prisma.payout.aggregate({
+          _sum: { amount: true },
+          where: {
+            status: "PENDING",
+            // Scope to THIS company — a partner who refers for several
+            // companies must not see other tenants' pending amounts in a
+            // company-branded email.
+            referral: {
+              partnerId: existing.partnerId,
+              companyId: existing.companyId,
+            },
+          },
+        });
+        const amounts = {
+          justEarned: newlyPendingAmount,
+          totalPending: Number(pendingAgg._sum.amount ?? 0),
+        };
+
+        if (!partner.hashedPassword) {
+          // Dormant Golden-Ticket referrer — they've never signed up. This
+          // is the claim moment: mint a set-password token (30-day window,
+          // generous because a reward-claim can sit a while) and send the
+          // claim link by email + text. Setting a password activates the
+          // account; the claim page nudges them to add bank details.
+          const rawToken = crypto.randomBytes(32).toString("base64url");
+          const hashedToken = crypto
+            .createHash("sha256")
+            .update(rawToken)
+            .digest("hex");
+          await prisma.passwordResetToken.create({
+            data: {
+              userId: existing.partnerId,
+              hashedToken,
+              expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+            },
+          });
+          const base = process.env.APP_URL || platform.url;
+          const claimUrl = `${base}/reset-password?token=${rawToken}`;
+          await Promise.all([
+            sendClaimRewardEmail(
+              { email: partner.email, fullName: partner.fullName },
+              existing.company,
+              amounts,
+              claimUrl,
+            ),
+            partner.phone
+              ? sendSms(
+                  partner.phone,
+                  `Good news — your referral to ${existing.company.name} paid off. Claim your reward here: ${claimUrl} Reply STOP to opt out.`,
+                )
+              : Promise.resolve(),
+          ]);
+        } else {
+          // Claimed partner who just hasn't added bank details yet.
+          await sendBankDetailsNeededEmail(
+            { email: partner.email, fullName: partner.fullName },
+            existing.company,
+            amounts,
+          );
+        }
+      }
+    } catch (err) {
+      console.error("[updateReferralStatusAction] bank nudge failed:", err);
+    }
+  }
+
   revalidatePath(`/company/referrals/${existing.id}`);
   revalidatePath("/company/referrals");
   revalidatePath("/company/payouts");
   revalidatePath("/company");
+}
+
+/**
+ * Toggle a referral's archived state. Archiving is reversible — sets
+ * archivedAt to now() (hide from default lists) or back to null (restore).
+ * No effect on status, payouts, or the audit trail; this is purely an
+ * inbox-zero affordance for admins.
+ */
+export async function toggleArchiveReferralAction(formData: FormData) {
+  const admin = await requireCompanyAdmin();
+  await assertCompanyCanWriteById(admin.companyId);
+
+  const referralId = String(formData.get("referralId") || "");
+  if (!referralId) {
+    throw new Error("Missing referral id.");
+  }
+
+  const referral = await prisma.referral.findUnique({
+    where: { id: referralId },
+    select: { id: true, companyId: true, archivedAt: true },
+  });
+  if (!referral || referral.companyId !== admin.companyId) {
+    throw new Error("Not authorised to modify this referral.");
+  }
+
+  await prisma.referral.update({
+    where: { id: referralId },
+    data: { archivedAt: referral.archivedAt ? null : new Date() },
+  });
+
+  revalidatePath(`/company/referrals/${referralId}`);
+  revalidatePath("/company/referrals");
+  revalidatePath("/company");
+}
+
+/**
+ * Permanently delete a referral and everything cascaded from it (payouts,
+ * status events). BLOCKED if any payout is PAID — destroying a record of
+ * money that actually changed hands wrecks the accounting trail. Archive
+ * those instead.
+ *
+ * Redirects to the list afterwards; the detail page no longer exists.
+ */
+export async function deleteReferralAction(formData: FormData) {
+  const admin = await requireCompanyAdmin();
+  await assertCompanyCanWriteById(admin.companyId);
+
+  const referralId = String(formData.get("referralId") || "");
+  if (!referralId) {
+    throw new Error("Missing referral id.");
+  }
+
+  const referral = await prisma.referral.findUnique({
+    where: { id: referralId },
+    select: {
+      id: true,
+      companyId: true,
+      payouts: { select: { id: true, status: true } },
+    },
+  });
+  if (!referral || referral.companyId !== admin.companyId) {
+    throw new Error("Not authorised to modify this referral.");
+  }
+
+  const hasPaidPayouts = referral.payouts.some((p) => p.status === "PAID");
+  if (hasPaidPayouts) {
+    throw new Error(
+      "Can't delete a referral that has paid payouts — archive it instead. " +
+        "Deleting would destroy the accounting record of money already paid.",
+    );
+  }
+
+  // Payouts and ReferralStatusEvents cascade-delete via the schema's
+  // onDelete: Cascade. Single delete call handles everything.
+  await prisma.referral.delete({ where: { id: referralId } });
+
+  revalidatePath("/company/referrals");
+  revalidatePath("/company/payouts");
+  revalidatePath("/company");
+  // Caller (the form) is on the detail page, so send them back to the list.
+  redirect("/company/referrals?deleted=1");
 }

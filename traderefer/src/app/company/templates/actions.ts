@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireCompanyAdmin } from "@/lib/auth";
+import { assertCompanyCanWriteById } from "@/lib/stripe";
 
 const UpsertSchema = z.object({
   id: z.string().optional(),
@@ -17,7 +18,8 @@ const UpsertSchema = z.object({
 
 export async function upsertTemplateAction(formData: FormData) {
   const admin = await requireCompanyAdmin();
-  const parsed = UpsertSchema.parse({
+  await assertCompanyCanWriteById(admin.companyId);
+  const result = UpsertSchema.safeParse({
     id: formData.get("id") || undefined,
     channel: formData.get("channel"),
     title: formData.get("title"),
@@ -26,6 +28,16 @@ export async function upsertTemplateAction(formData: FormData) {
     sortOrder: formData.get("sortOrder") || 0,
     active: formData.get("active") === "on",
   });
+  if (!result.success) {
+    console.error(
+      "[upsertTemplateAction] invalid form submission:",
+      result.error.flatten(),
+    );
+    throw new Error(
+      "Could not save template — check the title and body fields.",
+    );
+  }
+  const parsed = result.data;
 
   if (parsed.id) {
     // Only allow updating templates in this admin's company.
@@ -67,6 +79,7 @@ export async function upsertTemplateAction(formData: FormData) {
 
 export async function deleteTemplateAction(formData: FormData) {
   const admin = await requireCompanyAdmin();
+  await assertCompanyCanWriteById(admin.companyId);
   const id = String(formData.get("id") || "");
   if (!id) return;
   const existing = await prisma.messageTemplate.findUnique({

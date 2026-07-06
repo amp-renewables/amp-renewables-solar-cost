@@ -13,10 +13,12 @@ export function ProfileForm({
   fullName,
   businessName,
   phone,
+  postcode,
 }: {
   fullName: string;
   businessName: string;
   phone: string;
+  postcode: string;
 }) {
   const [state, action, pending] = useActionState(saveProfileAction, initial);
   return (
@@ -26,8 +28,21 @@ export function ProfileForm({
     >
       {state.ok && <OkBanner text={state.ok} />}
       <Field label="Your name" name="fullName" defaultValue={fullName} required error={state.errors?.fullName} />
-      <Field label="Business name" name="businessName" defaultValue={businessName} required error={state.errors?.businessName} />
+      <Field
+        label="Business name (optional)"
+        name="businessName"
+        defaultValue={businessName}
+        error={state.errors?.businessName}
+      />
       <Field label="Phone" name="phone" type="tel" defaultValue={phone} required error={state.errors?.phone} />
+      <Field
+        label="Postcode (optional)"
+        name="postcode"
+        defaultValue={postcode}
+        placeholder="NE1 4ST"
+        hint="Used to suggest other referral programmes near you — more programmes, more ways to earn."
+        error={state.errors?.postcode}
+      />
       <button
         type="submit"
         disabled={pending}
@@ -102,10 +117,12 @@ function OkBanner({ text }: { text: string }) {
 
 function Field({
   label,
+  hint,
   error,
   ...input
 }: React.InputHTMLAttributes<HTMLInputElement> & {
   label: string;
+  hint?: string;
   error?: string;
 }) {
   return (
@@ -116,6 +133,9 @@ function Field({
         className={`mt-1 block w-full rounded-lg border px-3 py-2 text-sm ${error ? "border-rose-400" : "border-slate-300"}`}
       />
       {error && <span className="text-xs text-rose-600">{error}</span>}
+      {!error && hint && (
+        <span className="text-xs text-slate-500 mt-1 block">{hint}</span>
+      )}
     </label>
   );
 }

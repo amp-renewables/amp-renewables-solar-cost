@@ -1,12 +1,55 @@
+import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import {
   getCompanyBySlug,
   formatCompanyMoney,
   payoutsForCompany,
 } from "@/lib/company";
 import { platform } from "@/lib/platform";
-import { getSessionUser, landingPathForRole } from "@/lib/auth";
+
+// Per-tenant metadata — the landing page is the most SEO-valuable public
+// surface (someone Googling "<company> referral programme" should land
+// here). Without this every tenant inherits the generic platform title.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const company = await getCompanyBySlug(slug);
+  if (!company) return {};
+
+  const payouts = payoutsForCompany(company);
+  const title = `Refer customers to ${company.name} — earn up to ${formatCompanyMoney(
+    company,
+    payouts.total,
+  )}`;
+  const description =
+    company.heroSubheading ??
+    `Join the ${company.name} referral programme. Refer a customer, they book an appointment and you get paid — track every referral and payout in one place.`;
+  const url = `${platform.url}/${company.slug}`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      type: "website",
+      title,
+      description,
+      url,
+      siteName: platform.name,
+      // Use the company's own logo as the share image where they've set one.
+      ...(company.logoUrl ? { images: [{ url: company.logoUrl }] } : {}),
+    },
+    twitter: {
+      card: company.logoUrl ? "summary" : "summary_large_image",
+      title,
+      description,
+    },
+  };
+}
 
 export default async function CompanyLandingPage({
   params,
@@ -17,8 +60,11 @@ export default async function CompanyLandingPage({
   const company = await getCompanyBySlug(slug);
   if (!company) notFound();
 
-  const user = await getSessionUser();
-  if (user) redirect(landingPathForRole(user.role));
+  // NB: this page is intentionally accessible to logged-in users too.
+  // Company admins need to be able to view their own landing page to QA
+  // it (logo, copy, colours) without having to log out. The header CTAs
+  // still send users to /login or /<slug>/signup, both of which handle
+  // already-authenticated visitors gracefully.
 
   const payouts = payoutsForCompany(company);
 
@@ -47,7 +93,6 @@ export default async function CompanyLandingPage({
           ) : (
             <span
               className="font-bold text-xl text-brand"
-              style={{ fontFamily: "Fraunces, serif" }}
             >
               {company.name}
             </span>
@@ -73,36 +118,92 @@ export default async function CompanyLandingPage({
           </span>
           <h1
             className="text-4xl sm:text-5xl font-bold leading-tight mb-6"
-            style={{ fontFamily: "Fraunces, serif" }}
           >
             Refer customers to {company.name}. Earn up to{" "}
             {formatCompanyMoney(company, payouts.total)} per job.
           </h1>
-          <p className="text-lg text-emerald-100 max-w-2xl mx-auto mb-10">
+          <p className="text-lg text-white/80 max-w-2xl mx-auto mb-8">
             {company.heroSubheading ??
-              `A simple referral programme for roofers, electricians and other trades. Send a customer to ${company.name} — they book the appointment and pay you ${formatCompanyMoney(company, payouts.appointment)}. If the job sells, you earn another ${formatCompanyMoney(company, payouts.job)}.`}
+              (payouts.appointment > 0
+                ? `A simple referral programme for roofers, electricians and other trades. Send a customer to ${company.name} — they book the appointment and pay you ${formatCompanyMoney(company, payouts.appointment)}. If the job sells, you earn another ${formatCompanyMoney(company, payouts.job)}.`
+                : `A simple referral programme for roofers, electricians and other trades. Send a customer to ${company.name} — when their job sells, you earn ${formatCompanyMoney(company, payouts.job)}.`)}
           </p>
+
+          {/* The deal as cards, not just prose — same treatment the
+              TradeRefer homepage gives this programme. Accent card =
+              the headline total. Collapses to one card for
+              sold-jobs-only deals. */}
+          {payouts.appointment > 0 ? (
+            <div className="grid sm:grid-cols-3 gap-3 max-w-3xl mx-auto mb-10 text-left">
+              <div className="bg-white/10 border border-white/15 rounded-xl px-5 py-4">
+                <div className="text-2xl font-bold">
+                  {formatCompanyMoney(company, payouts.appointment)}
+                </div>
+                <div className="text-sm text-white/80 mt-0.5">
+                  when the appointment is booked
+                </div>
+              </div>
+              <div className="bg-white/10 border border-white/15 rounded-xl px-5 py-4">
+                <div className="text-2xl font-bold">
+                  {formatCompanyMoney(company, payouts.job)}
+                </div>
+                <div className="text-sm text-white/80 mt-0.5">
+                  more when the job sells
+                </div>
+              </div>
+              <div className="bg-brand-accent text-brand rounded-xl px-5 py-4">
+                <div className="text-2xl font-bold">
+                  Up to {formatCompanyMoney(company, payouts.total)}
+                </div>
+                <div className="text-sm mt-0.5">per referred customer</div>
+              </div>
+            </div>
+          ) : (
+            <div className="max-w-xs mx-auto mb-10 text-left">
+              <div className="bg-brand-accent text-brand rounded-xl px-5 py-4 text-center">
+                <div className="text-2xl font-bold">
+                  {formatCompanyMoney(company, payouts.job)}
+                </div>
+                <div className="text-sm mt-0.5">
+                  for every referred job that sells
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
               href={`/${company.slug}/signup`}
               className="bg-brand-accent text-brand font-semibold px-6 py-3 rounded-lg w-full sm:w-auto"
             >
-              Become a partner →
+              Start referring →
             </Link>
             <Link
               href="/login"
-              className="border border-emerald-200 text-emerald-100 px-6 py-3 rounded-lg w-full sm:w-auto hover:bg-white/5"
+              className="border border-white/30 text-white/90 px-6 py-3 rounded-lg w-full sm:w-auto hover:bg-white/5"
             >
               I already have an account
             </Link>
           </div>
+
+          {/* Low-friction path for casual referrers: refer someone in a
+              minute without signing up (Golden Ticket). Sits under the
+              partner CTAs as the lighter option. */}
+          <p className="mt-6 text-sm text-white/80">
+            Just want to refer someone?{" "}
+            <Link
+              href={`/${company.slug}/refer`}
+              className="font-semibold text-white underline"
+            >
+              Do it in a minute — no sign-up →
+            </Link>
+          </p>
         </div>
       </section>
 
       <section className="max-w-5xl mx-auto px-6 py-20">
         <h2
           className="text-3xl font-bold text-brand text-center mb-12"
-          style={{ fontFamily: "Fraunces, serif" }}
         >
           How it works
         </h2>
@@ -115,12 +216,24 @@ export default async function CompanyLandingPage({
           <Step
             n={2}
             title="We book the appointment"
-            body={`${company.name} contacts the customer and books a free survey. You earn ${formatCompanyMoney(company, payouts.appointment)} the moment that appointment is confirmed.`}
+            body={
+              payouts.appointment > 0
+                ? `${company.name} contacts the customer and books a free survey. You earn ${formatCompanyMoney(company, payouts.appointment)} the moment that appointment is confirmed.`
+                : `${company.name} contacts the customer and books a free survey — no chasing, no quoting, nothing more for you to do.`
+            }
           />
           <Step
             n={3}
-            title="They go ahead — you get paid again"
-            body={`If the customer goes ahead with the install, you earn an additional ${formatCompanyMoney(company, payouts.job)}. Up to ${formatCompanyMoney(company, payouts.total)} per referred customer.`}
+            title={
+              payouts.appointment > 0
+                ? "They go ahead — you get paid again"
+                : "They go ahead — you get paid"
+            }
+            body={
+              payouts.appointment > 0
+                ? `If the customer goes ahead with the install, you earn an additional ${formatCompanyMoney(company, payouts.job)}. Up to ${formatCompanyMoney(company, payouts.total)} per referred customer.`
+                : `If the customer goes ahead with the install, you earn ${formatCompanyMoney(company, payouts.job)} — for every customer you refer.`
+            }
           />
         </div>
       </section>
@@ -129,7 +242,6 @@ export default async function CompanyLandingPage({
         <div className="max-w-3xl mx-auto px-6 text-center">
           <h2
             className="text-2xl font-bold text-brand mb-4"
-            style={{ fontFamily: "Fraunces, serif" }}
           >
             What {company.name} cover
           </h2>
@@ -150,11 +262,10 @@ export default async function CompanyLandingPage({
         <div className="max-w-3xl mx-auto px-6 py-16 text-center">
           <h2
             className="text-3xl font-bold mb-4"
-            style={{ fontFamily: "Fraunces, serif" }}
           >
             Ready to start earning?
           </h2>
-          <p className="text-emerald-100 mb-8">
+          <p className="text-white/80 mb-8">
             Sign up takes 30 seconds. No fees, no contracts.
           </p>
           <Link
@@ -185,7 +296,18 @@ export default async function CompanyLandingPage({
             {company.contactEmail}
           </a>
         </p>
-        <p className="text-slate-400 pt-4">
+        <nav className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-slate-500 pt-4">
+          <Link href="/help" className="hover:text-brand">
+            Help
+          </Link>
+          <Link href="/terms" className="hover:text-brand">
+            Terms
+          </Link>
+          <Link href="/privacy" className="hover:text-brand">
+            Privacy
+          </Link>
+        </nav>
+        <p className="text-slate-400">
           Programme powered by{" "}
           <Link href="/" className="underline">
             {platform.name}

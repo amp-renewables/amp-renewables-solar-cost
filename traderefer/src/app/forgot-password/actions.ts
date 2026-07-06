@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { platform } from "@/lib/platform";
 import { sendPasswordResetEmail } from "@/lib/email";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 
 const Schema = z.object({
   email: z.string().trim().email("Enter a valid email"),
@@ -27,6 +28,15 @@ export async function forgotPasswordAction(
   _prev: ForgotPasswordState,
   formData: FormData,
 ): Promise<ForgotPasswordState> {
+  // Throttle reset requests per IP — caps token/email spam. Return the
+  // normal success response so we don't reveal the limit (or which emails
+  // exist). No token work happens when limited.
+  const limited = await rateLimit("forgot-password", await clientIp(), {
+    limit: 6,
+    windowSec: 3600,
+  });
+  if (!limited.ok) return { ok: true };
+
   const parsed = Schema.safeParse({ email: formData.get("email") });
   if (!parsed.success) {
     const errors: Record<string, string> = {};

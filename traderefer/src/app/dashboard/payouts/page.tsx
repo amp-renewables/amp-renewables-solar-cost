@@ -25,7 +25,6 @@ export default async function PartnerPayoutsPage() {
     <div className="space-y-6">
       <h1
         className="text-2xl font-bold text-brand"
-        style={{ fontFamily: "Fraunces, serif" }}
       >
         Payouts
       </h1>
@@ -38,8 +37,17 @@ export default async function PartnerPayoutsPage() {
 
       <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
         Payouts are paid by bank transfer monthly.{" "}
-        {formatCompanyMoney(company, payoutRules.appointment)} per appointment
-        booked, {formatCompanyMoney(company, payoutRules.job)} per job sold.
+        {payoutRules.appointment > 0 ? (
+          <>
+            {formatCompanyMoney(company, payoutRules.appointment)} per
+            appointment booked,{" "}
+            {formatCompanyMoney(company, payoutRules.job)} per job sold.
+          </>
+        ) : (
+          <>
+            {formatCompanyMoney(company, payoutRules.job)} per job sold.
+          </>
+        )}
       </div>
 
       {payouts.length === 0 ? (

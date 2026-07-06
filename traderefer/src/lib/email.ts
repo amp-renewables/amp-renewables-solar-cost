@@ -1,10 +1,9 @@
-// Email notifications. Sends to NOTIFY_EMAIL (configured in env) whenever:
-//   - a new partner signs up
-//   - a partner submits a new referral
-//   - a new Company signs up to the TradeRefer platform (£99/mo customer)
+// Email notifications. Company-facing events (new partner signup, new
+// referral) go to that company's contactEmail; platform events (a new
+// Company signing up — a £99/mo customer) go to NOTIFY_EMAIL from env.
 //
-// Uses Resend (resend.com). If RESEND_API_KEY or NOTIFY_EMAIL aren't set the
-// helpers no-op, so the app works fine in dev without email configured.
+// Uses Resend (resend.com). If RESEND_API_KEY isn't set the helpers
+// no-op, so the app works fine in dev without email configured.
 //
 // All send calls swallow errors — a failing email must never block signup
 // or referral submission.
@@ -31,10 +30,10 @@ type ReferralPayload = {
   id: string;
   customerName: string;
   customerPhone: string;
-  customerEmail: string;
-  addressLine1: string;
+  customerEmail: string | null;
+  addressLine1: string | null;
   addressLine2?: string | null;
-  city: string;
+  city: string | null;
   postcode: string;
   services: string[];
   notes?: string | null;
@@ -65,7 +64,12 @@ export async function sendNewReferralNotification(
   partner: PartnerPayload,
   company: CompanyPayload,
 ): Promise<void> {
-  if (!configured() || !resend || !NOTIFY_EMAIL) return;
+  if (!resend) {
+    console.warn(
+      `[email] no RESEND_API_KEY — new-referral notification for ${company.name} skipped`,
+    );
+    return;
+  }
 
   const adminLink = `${APP_URL}/company/referrals/${referral.id}`;
   const subject = `[${company.name}] New referral from ${
@@ -75,19 +79,23 @@ export async function sendNewReferralNotification(
   const addressLines = [
     referral.addressLine1,
     referral.addressLine2,
-    `${referral.city}, ${referral.postcode}`,
+    referral.city ? `${referral.city}, ${referral.postcode}` : referral.postcode,
   ].filter(Boolean) as string[];
 
   const html = `
     <div style="font-family:system-ui,sans-serif;color:#222;max-width:600px;">
-      <h2 style="color:${company.primaryColor};margin-bottom:4px;">New referral from ${esc(partner.businessName ?? "")}</h2>
+      <h2 style="color:${company.primaryColor};margin-bottom:4px;">New referral from ${esc(partner.businessName ?? partner.fullName ?? "a partner")}</h2>
       <p style="color:#666;margin-top:0;">${esc(partner.fullName ?? "A partner")} has just submitted a new customer referral to <strong>${esc(company.name)}</strong>.</p>
 
       <h3 style="margin-top:28px;color:${company.primaryColor};">Customer</h3>
       <table style="border-collapse:collapse;font-size:14px;">
         <tr><td style="padding:4px 12px 4px 0;color:#888;">Name</td><td style="padding:4px 0;font-weight:500;">${esc(referral.customerName)}</td></tr>
         <tr><td style="padding:4px 12px 4px 0;color:#888;">Phone</td><td style="padding:4px 0;"><a href="tel:${esc(referral.customerPhone)}" style="color:${company.primaryColor};">${esc(referral.customerPhone)}</a></td></tr>
-        <tr><td style="padding:4px 12px 4px 0;color:#888;">Email</td><td style="padding:4px 0;"><a href="mailto:${esc(referral.customerEmail)}" style="color:${company.primaryColor};">${esc(referral.customerEmail)}</a></td></tr>
+        ${
+          referral.customerEmail
+            ? `<tr><td style="padding:4px 12px 4px 0;color:#888;">Email</td><td style="padding:4px 0;"><a href="mailto:${esc(referral.customerEmail)}" style="color:${company.primaryColor};">${esc(referral.customerEmail)}</a></td></tr>`
+            : ""
+        }
         <tr><td style="padding:4px 12px 4px 0;color:#888;vertical-align:top;">Address</td><td style="padding:4px 0;">${addressLines.map(esc).join("<br/>")}</td></tr>
         <tr><td style="padding:4px 12px 4px 0;color:#888;">Services</td><td style="padding:4px 0;">${esc(referral.services.join(", "))}</td></tr>
         ${
@@ -99,7 +107,7 @@ export async function sendNewReferralNotification(
 
       <h3 style="margin-top:28px;color:${company.primaryColor};">Partner (referrer)</h3>
       <table style="border-collapse:collapse;font-size:14px;">
-        <tr><td style="padding:4px 12px 4px 0;color:#888;">Business</td><td style="padding:4px 0;font-weight:500;">${esc(partner.businessName ?? "")}</td></tr>
+        <tr><td style="padding:4px 12px 4px 0;color:#888;">Business</td><td style="padding:4px 0;font-weight:500;">${esc(partner.businessName ?? "(individual referrer)")}</td></tr>
         <tr><td style="padding:4px 12px 4px 0;color:#888;">Contact</td><td style="padding:4px 0;">${esc(partner.fullName ?? "")}</td></tr>
         <tr><td style="padding:4px 12px 4px 0;color:#888;">Email</td><td style="padding:4px 0;"><a href="mailto:${esc(partner.email)}" style="color:${company.primaryColor};">${esc(partner.email)}</a></td></tr>
         ${
@@ -113,25 +121,29 @@ export async function sendNewReferralNotification(
 
       <p style="margin-top:32px;color:#999;font-size:12px;">
         Reply to this email to contact the partner directly.<br/>
-        Earnings on this referral: ${formatCompanyMoney(company, Number(company.payoutAppointment))} on appointment booked, ${formatCompanyMoney(company, Number(company.payoutJob))} on job sold.
+        Earnings on this referral: ${
+          Number(company.payoutAppointment) > 0
+            ? `${formatCompanyMoney(company, Number(company.payoutAppointment))} on appointment booked, ${formatCompanyMoney(company, Number(company.payoutJob))} on job sold.`
+            : `${formatCompanyMoney(company, Number(company.payoutJob))} on job sold.`
+        }
       </p>
     </div>
   `;
 
   const text = [
-    `New referral from ${partner.businessName ?? ""} for ${company.name}`,
+    `New referral from ${partner.businessName ?? partner.fullName ?? "a partner"} for ${company.name}`,
     `${partner.fullName ?? "A partner"} has just submitted a new customer referral.`,
     ``,
     `CUSTOMER`,
     `Name:     ${referral.customerName}`,
     `Phone:    ${referral.customerPhone}`,
-    `Email:    ${referral.customerEmail}`,
+    referral.customerEmail ? `Email:    ${referral.customerEmail}` : null,
     `Address:  ${addressLines.join(", ")}`,
     `Services: ${referral.services.join(", ")}`,
     referral.notes ? `Notes:    ${referral.notes}` : null,
     ``,
     `PARTNER (REFERRER)`,
-    `Business: ${partner.businessName ?? ""}`,
+    `Business: ${partner.businessName ?? "(individual referrer)"}`,
     `Contact:  ${partner.fullName ?? ""}`,
     `Email:    ${partner.email}`,
     partner.phone ? `Phone:    ${partner.phone}` : null,
@@ -144,7 +156,10 @@ export async function sendNewReferralNotification(
   try {
     await resend.emails.send({
       from: FROM_EMAIL,
-      to: NOTIFY_EMAIL,
+      // The company whose referral this is — NOT the platform inbox.
+      // (Was NOTIFY_EMAIL until 2026-06-11, which silently worked while
+      // AMP was the only tenant because Joe read both inboxes.)
+      to: company.contactEmail,
       replyTo: partner.email,
       subject,
       html,
@@ -155,11 +170,93 @@ export async function sendNewReferralNotification(
   }
 }
 
+/**
+ * Sent INSTEAD of the full referral notification when the company's
+ * account is lapsed (expired trial, past due, or cancelled). Names the
+ * partner but deliberately withholds every customer detail — the
+ * referral is the reason to reactivate, so the value stays behind the
+ * billing page. Real demand is the best dunning email we can send.
+ */
+export async function sendLockedReferralNotification(
+  partner: Pick<PartnerPayload, "fullName" | "businessName">,
+  company: Pick<Company, "name" | "contactEmail">,
+): Promise<void> {
+  if (!resend) {
+    console.warn(
+      `[email] no RESEND_API_KEY — locked-referral notice for ${company.name} skipped`,
+    );
+    return;
+  }
+
+  const partnerDisplay =
+    partner.businessName || partner.fullName || "One of your partners";
+  const billingLink = `${APP_URL}/company/billing`;
+  const subject = `${partnerDisplay} just sent you a referral — reactivate to view it`;
+
+  const html = `
+    <div style="font-family:system-ui,sans-serif;color:#222;max-width:560px;">
+      <h2 style="color:${platform.colors.primary};margin-bottom:8px;">
+        A new referral is waiting for you
+      </h2>
+      <p style="color:#444;line-height:1.5;">
+        <strong>${esc(partnerDisplay)}</strong> has just sent a customer
+        referral to ${esc(company.name)}.
+      </p>
+      <p style="color:#444;line-height:1.5;">
+        Your ${platform.name} account is currently paused, so the
+        customer's details are locked. The referral is saved and waiting —
+        reactivate your account to see who they are and get in touch
+        while the lead is warm.
+      </p>
+      <p style="margin-top:24px;">
+        <a href="${billingLink}" style="background:${platform.colors.primary};color:#fff;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:500;display:inline-block;">Reactivate your account</a>
+      </p>
+      <p style="margin-top:28px;color:#999;font-size:12px;">
+        Your partners can keep sending referrals while your account is
+        paused — nothing is lost. Questions? Just reply to this email.
+      </p>
+    </div>
+  `;
+
+  const text = [
+    `A new referral is waiting for you`,
+    ``,
+    `${partnerDisplay} has just sent a customer referral to ${company.name}.`,
+    ``,
+    `Your ${platform.name} account is currently paused, so the customer's`,
+    `details are locked. The referral is saved and waiting — reactivate`,
+    `your account to see who they are and get in touch while the lead is warm.`,
+    ``,
+    `Reactivate: ${billingLink}`,
+    ``,
+    `Your partners can keep sending referrals while your account is paused —`,
+    `nothing is lost. Questions? Just reply to this email.`,
+  ].join("\n");
+
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: company.contactEmail,
+      replyTo: platform.supportEmail,
+      subject,
+      html,
+      text,
+    });
+  } catch (err) {
+    console.error("[email] locked-referral notice failed:", err);
+  }
+}
+
 export async function sendNewPartnerSignupNotification(
   partner: PartnerPayload,
   company: CompanyPayload,
 ): Promise<void> {
-  if (!configured() || !resend || !NOTIFY_EMAIL) return;
+  if (!resend) {
+    console.warn(
+      `[email] no RESEND_API_KEY — new-partner notification for ${company.name} skipped`,
+    );
+    return;
+  }
 
   const adminLink = `${APP_URL}/company/partners`;
   const subject = `[${company.name}] New partner signup: ${
@@ -172,7 +269,7 @@ export async function sendNewPartnerSignupNotification(
       <p style="color:#666;margin-top:0;">A new tradesman has just registered for the ${esc(company.name)} referral programme on ${esc(platform.name)}.</p>
 
       <table style="border-collapse:collapse;font-size:14px;margin-top:20px;">
-        <tr><td style="padding:4px 12px 4px 0;color:#888;">Business</td><td style="padding:4px 0;font-weight:500;">${esc(partner.businessName ?? "")}</td></tr>
+        <tr><td style="padding:4px 12px 4px 0;color:#888;">Business</td><td style="padding:4px 0;font-weight:500;">${esc(partner.businessName ?? "(individual referrer)")}</td></tr>
         <tr><td style="padding:4px 12px 4px 0;color:#888;">Contact</td><td style="padding:4px 0;">${esc(partner.fullName ?? "")}</td></tr>
         <tr><td style="padding:4px 12px 4px 0;color:#888;">Email</td><td style="padding:4px 0;"><a href="mailto:${esc(partner.email)}" style="color:${company.primaryColor};">${esc(partner.email)}</a></td></tr>
         ${
@@ -189,7 +286,7 @@ export async function sendNewPartnerSignupNotification(
   const text = [
     `New partner signed up for ${company.name}`,
     ``,
-    `Business: ${partner.businessName ?? ""}`,
+    `Business: ${partner.businessName ?? "(individual referrer)"}`,
     `Contact:  ${partner.fullName ?? ""}`,
     `Email:    ${partner.email}`,
     partner.phone ? `Phone:    ${partner.phone}` : null,
@@ -202,7 +299,8 @@ export async function sendNewPartnerSignupNotification(
   try {
     await resend.emails.send({
       from: FROM_EMAIL,
-      to: NOTIFY_EMAIL,
+      // The company gaining the partner — NOT the platform inbox.
+      to: company.contactEmail,
       replyTo: partner.email,
       subject,
       html,
@@ -210,6 +308,766 @@ export async function sendNewPartnerSignupNotification(
     });
   } catch (err) {
     console.error("[email] new-partner-signup notification failed:", err);
+  }
+}
+
+/**
+ * Goes to a new PARTNER the moment they sign up under a company's
+ * programme. Branded as the company (From display name + reply-to their
+ * contact email) since the partner's relationship is with the company,
+ * not with TradeRefer. Covers: the deal, how to refer, the bank-details
+ * nudge.
+ */
+export async function sendPartnerWelcomeEmail(
+  partner: { email: string; fullName: string | null },
+  company: CompanyPayload,
+  // The partner's own customer-facing referral link — the main new way to
+  // refer: share it, the customer self-submits, the partner gets paid.
+  referralUrl: string,
+): Promise<void> {
+  if (!resend) {
+    console.warn(
+      `[email] no RESEND_API_KEY — partner welcome for ${partner.email} skipped`,
+    );
+    return;
+  }
+
+  const firstName = partner.fullName?.trim().split(/\s+/)[0] || "there";
+  // A zero rate means the company doesn't pay for that milestone — the
+  // deal table only lists milestones that actually pay.
+  const hasAppointment = Number(company.payoutAppointment) > 0;
+  const appointment = formatCompanyMoney(
+    company,
+    Number(company.payoutAppointment),
+  );
+  const job = formatCompanyMoney(company, Number(company.payoutJob));
+  const total = formatCompanyMoney(
+    company,
+    Number(company.payoutAppointment) + Number(company.payoutJob),
+  );
+  const referLink = `${APP_URL}/dashboard/refer`;
+  const settingsLink = `${APP_URL}/dashboard/settings`;
+  const fromDisplay = company.name.replace(/["<>]/g, "");
+
+  const subject = `You're in — start earning ${total} per customer you refer to ${company.name}`;
+
+  const html = `
+    <div style="font-family:system-ui,sans-serif;color:#222;max-width:560px;">
+      <h2 style="color:${company.primaryColor};margin-bottom:8px;">
+        Welcome aboard, ${esc(firstName)}
+      </h2>
+      <p style="color:#444;line-height:1.5;">
+        You're now a referral partner for <strong>${esc(company.name)}</strong>.
+        Here's the deal, in black and white:
+      </p>
+      <table style="border-collapse:collapse;font-size:14px;margin:20px 0;">
+        ${
+          hasAppointment
+            ? `<tr><td style="padding:4px 16px 4px 0;color:#888;">Appointment booked</td><td style="padding:4px 0;font-weight:600;">${esc(appointment)}</td></tr>
+        <tr><td style="padding:4px 16px 4px 0;color:#888;">Job sells</td><td style="padding:4px 0;font-weight:600;">${esc(job)} more</td></tr>
+        <tr><td style="padding:4px 16px 4px 0;color:#888;">Per customer</td><td style="padding:4px 0;font-weight:600;color:${company.primaryColor};">up to ${esc(total)}</td></tr>`
+            : `<tr><td style="padding:4px 16px 4px 0;color:#888;">Job sells</td><td style="padding:4px 0;font-weight:600;color:${company.primaryColor};">${esc(job)}</td></tr>`
+        }
+      </table>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin:20px 0;">
+        <p style="margin:0 0 6px;font-weight:600;color:${company.primaryColor};">Your referral link — share it with customers</p>
+        <p style="margin:0 0 10px;color:#444;font-size:14px;line-height:1.5;">
+          Send this to anyone who might want ${esc(company.name)}'s services —
+          by text, WhatsApp, email, however you like. They pop in their own
+          details, ${esc(company.name)} calls them, and you get paid. Nothing
+          for you to collect.
+        </p>
+        <a href="${referralUrl}" style="color:${company.primaryColor};font-weight:600;word-break:break-all;">${esc(referralUrl)}</a>
+      </div>
+      <p style="color:#444;line-height:1.5;">
+        A couple of things to know:
+      </p>
+      <ol style="color:#444;font-size:14px;line-height:1.6;padding-left:20px;">
+        <li>
+          <strong>Prefer to add a customer yourself?</strong> You can — just
+          their name, mobile and postcode. Use your link or the form,
+          whichever suits.
+        </li>
+        <li>
+          <strong>Add your bank details</strong> in your account settings
+          so payouts can reach you. They're encrypted and only
+          ${esc(company.name)} can see them.
+        </li>
+      </ol>
+      <p style="margin-top:24px;">
+        <a href="${referLink}" style="background:${company.primaryColor};color:#fff;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:500;display:inline-block;">Refer a customer</a>
+        &nbsp;
+        <a href="${settingsLink}" style="color:${company.primaryColor};font-size:14px;">Add bank details →</a>
+      </p>
+      <p style="margin-top:28px;color:#999;font-size:12px;">
+        Tip: save the link on your phone — open ${esc(APP_URL.replace("https://", ""))}
+        in your browser and choose "Add to Home Screen" to keep it one tap
+        away. Questions? Just reply to this email.
+      </p>
+    </div>
+  `;
+
+  const text = [
+    `Welcome aboard, ${firstName}`,
+    ``,
+    `You're now a referral partner for ${company.name}. The deal:`,
+    ``,
+    ...(hasAppointment
+      ? [
+          `Appointment booked:  ${appointment}`,
+          `Job sells:           ${job} more`,
+          `Per customer:        up to ${total}`,
+        ]
+      : [`Job sells:           ${job}`]),
+    ``,
+    `YOUR REFERRAL LINK — share it with customers:`,
+    referralUrl,
+    `Send it by text, WhatsApp or email. They add their own details, ${company.name} calls them, you get paid.`,
+    ``,
+    `A couple of things to know:`,
+    `1. Prefer to add a customer yourself? Use your link or the form: ${referLink}`,
+    `2. Add your bank details so payouts can reach you: ${settingsLink}`,
+    ``,
+    `Questions? Just reply to this email.`,
+  ].join("\n");
+
+  try {
+    await resend.emails.send({
+      from: `${fromDisplay} <${FROM_EMAIL}>`,
+      to: partner.email,
+      replyTo: company.contactEmail,
+      subject,
+      html,
+      text,
+    });
+  } catch (err) {
+    console.error("[email] partner welcome failed:", err);
+  }
+}
+
+/**
+ * Forwards an inbound SMS reply (to our Twilio number) to the company
+ * whose invite/partner the sender matches. The reply moment is the
+ * conversion moment — this email is built to make texting them back
+ * effortless: the sender's number is front and centre.
+ */
+export async function sendInboundSmsForwardEmail(
+  company: Pick<Company, "name" | "contactEmail" | "primaryColor">,
+  sms: {
+    fromNumber: string;
+    body: string;
+    senderName: string | null;
+    senderContext: string; // e.g. "invited 2 days ago", "existing partner"
+  },
+): Promise<void> {
+  if (!resend) {
+    console.warn(
+      `[email] no RESEND_API_KEY — inbound SMS forward for ${company.contactEmail} skipped`,
+    );
+    return;
+  }
+
+  const who = sms.senderName || sms.fromNumber;
+  const subject = `Text reply from ${who}: "${sms.body.slice(0, 60)}${sms.body.length > 60 ? "…" : ""}"`;
+
+  const html = `
+    <div style="font-family:system-ui,sans-serif;color:#222;max-width:560px;">
+      <h2 style="color:${company.primaryColor};margin-bottom:4px;">
+        ${esc(who)} texted back
+      </h2>
+      <p style="color:#666;margin-top:0;font-size:13px;">
+        ${esc(sms.senderContext)} · replied to your ${esc(platform.name)} invite number
+      </p>
+      <blockquote style="border-left:3px solid ${company.primaryColor};margin:20px 0;padding:8px 16px;background:#f8fafc;font-size:15px;white-space:pre-wrap;">${esc(sms.body)}</blockquote>
+      <p style="font-size:14px;color:#444;">
+        Reply directly from your own phone:
+        <a href="sms:${esc(sms.fromNumber)}" style="color:${company.primaryColor};font-weight:600;">${esc(sms.fromNumber)}</a>
+      </p>
+      <p style="margin-top:24px;color:#999;font-size:12px;">
+        Texts to the invite number aren't a two-way inbox — replies land
+        here as email. Texting them back from your own number keeps the
+        conversation personal.
+      </p>
+    </div>
+  `;
+
+  const text = [
+    `${who} texted back (${sms.senderContext}):`,
+    ``,
+    `"${sms.body}"`,
+    ``,
+    `Reply directly from your own phone: ${sms.fromNumber}`,
+  ].join("\n");
+
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: company.contactEmail,
+      subject,
+      html,
+      text,
+    });
+  } catch (err) {
+    console.error("[email] inbound SMS forward failed:", err);
+  }
+}
+
+/**
+ * Goes to a GOLDEN-TICKET referrer the instant they refer someone via the
+ * public link — before they have any TradeRefer account. Confirms it's
+ * logged, sets the expectation of a reward, and makes clear there's
+ * nothing to do yet (they'll get a claim link if it pays out). Branded as
+ * the company. `referrerName` may be null (we greet generically then).
+ */
+export async function sendReferrerReferralConfirmation(
+  referrer: { email: string; fullName: string | null },
+  company: CompanyPayload,
+  details: { customerName: string; potentialTotal: number },
+): Promise<void> {
+  if (!resend) {
+    console.warn(
+      `[email] no RESEND_API_KEY — referrer confirmation for ${referrer.email} skipped`,
+    );
+    return;
+  }
+
+  const firstName = referrer.fullName?.trim().split(/\s+/)[0] || "there";
+  const total = formatCompanyMoney(company, details.potentialTotal);
+  const fromDisplay = company.name.replace(/["<>]/g, "");
+
+  const subject = `Thanks for referring ${details.customerName} to ${company.name}`;
+
+  const html = `
+    <div style="font-family:system-ui,sans-serif;color:#222;max-width:560px;">
+      <h2 style="color:${company.primaryColor};margin-bottom:8px;">
+        Thanks, ${esc(firstName)} — your referral is in
+      </h2>
+      <p style="color:#444;line-height:1.5;">
+        You've referred <strong>${esc(details.customerName)}</strong> to
+        <strong>${esc(company.name)}</strong>. They'll be in touch with them
+        to arrange a free survey.
+      </p>
+      <p style="color:#444;line-height:1.5;">
+        If it goes ahead, <strong>you earn up to ${esc(total)}</strong>.
+        There's nothing to do right now — no account, no forms. The moment
+        there's money to pay you, we'll send you a link to claim it and add
+        your bank details. That's the only sign-up you'll ever need, and
+        only once you've actually earned.
+      </p>
+      <p style="margin-top:28px;color:#999;font-size:12px;">
+        Questions? Just reply to this email.
+      </p>
+    </div>
+  `;
+
+  const text = [
+    `Thanks, ${firstName} — your referral is in`,
+    ``,
+    `You've referred ${details.customerName} to ${company.name}. They'll be in touch to arrange a free survey.`,
+    ``,
+    `If it goes ahead, you earn up to ${total}. Nothing to do right now — no account, no forms. The moment there's money to pay you, we'll send a link to claim it and add your bank details. That's the only sign-up you'll ever need, and only once you've earned.`,
+    ``,
+    `Questions? Just reply to this email.`,
+  ].join("\n");
+
+  try {
+    await resend.emails.send({
+      from: `${fromDisplay} <${FROM_EMAIL}>`,
+      to: referrer.email,
+      replyTo: company.contactEmail,
+      subject,
+      html,
+      text,
+    });
+  } catch (err) {
+    console.error("[email] referrer confirmation failed:", err);
+  }
+}
+
+/**
+ * Delivers a referrer their own personal, shareable referral link — sent
+ * the moment they request one (no account yet). They forward this to
+ * friends; whoever fills it in is credited to them. Branded as the company.
+ */
+export async function sendReferrerLinkEmail(
+  referrer: { email: string; fullName: string | null },
+  company: CompanyPayload,
+  details: { referUrl: string; potentialTotal: number },
+): Promise<void> {
+  if (!resend) {
+    console.warn(
+      `[email] no RESEND_API_KEY — referrer link email for ${referrer.email} skipped`,
+    );
+    return;
+  }
+
+  const firstName = referrer.fullName?.trim().split(/\s+/)[0] || "there";
+  const total = formatCompanyMoney(company, details.potentialTotal);
+  const fromDisplay = company.name.replace(/["<>]/g, "");
+  const subject = `Your ${company.name} referral link — share it and earn up to ${total}`;
+
+  const html = `
+    <div style="font-family:system-ui,sans-serif;color:#222;max-width:560px;">
+      <h2 style="color:${company.primaryColor};margin-bottom:8px;">
+        Here's your referral link, ${esc(firstName)}
+      </h2>
+      <p style="color:#444;line-height:1.5;">
+        Send this to anyone who might want <strong>${esc(company.name)}</strong>'s
+        services — by text, WhatsApp, however you like. They fill in their
+        details, ${esc(company.name)} takes it from there, and if it goes
+        ahead <strong>you earn up to ${esc(total)}</strong>.
+      </p>
+      <p style="margin:20px 0;">
+        <a href="${details.referUrl}" style="color:${company.primaryColor};font-weight:700;word-break:break-all;">${esc(details.referUrl)}</a>
+      </p>
+      <p style="color:#444;line-height:1.5;">
+        Nothing else to do for now — no account needed. The moment a referral
+        pays out, we'll send you a link to claim your reward and add your bank
+        details. That's the only sign-up, and only once you've earned.
+      </p>
+      <p style="margin-top:28px;color:#999;font-size:12px;">
+        Questions? Just reply to this email.
+      </p>
+    </div>
+  `;
+
+  const text = [
+    `Here's your referral link, ${firstName}`,
+    ``,
+    `Share it with anyone who might want ${company.name}'s services. They fill in their details and if it goes ahead you earn up to ${total}:`,
+    details.referUrl,
+    ``,
+    `No account needed for now. When a referral pays out we'll send you a link to claim your reward and add your bank details — the only sign-up, and only once you've earned.`,
+    ``,
+    `Questions? Just reply to this email.`,
+  ].join("\n");
+
+  try {
+    await resend.emails.send({
+      from: `${fromDisplay} <${FROM_EMAIL}>`,
+      to: referrer.email,
+      replyTo: company.contactEmail,
+      subject,
+      html,
+      text,
+    });
+  } catch (err) {
+    console.error("[email] referrer link email failed:", err);
+  }
+}
+
+/**
+ * The pay-off of the Golden Ticket flow: a DORMANT referrer's referral has
+ * earned them money, so now — and only now — we ask them to set up. One
+ * link: set a password + add bank details, and the reward is theirs. This
+ * is the single sign-up moment the whole low-friction model defers to.
+ * Branded as the company.
+ */
+export async function sendClaimRewardEmail(
+  referrer: { email: string; fullName: string | null },
+  company: CompanyPayload,
+  amounts: { justEarned: number; totalPending: number },
+  claimUrl: string,
+): Promise<void> {
+  if (!resend) {
+    console.warn(
+      `[email] no RESEND_API_KEY — claim-reward email for ${referrer.email} skipped`,
+    );
+    return;
+  }
+
+  const firstName = referrer.fullName?.trim().split(/\s+/)[0] || "there";
+  const justEarned = formatCompanyMoney(company, amounts.justEarned);
+  const totalPending = formatCompanyMoney(company, amounts.totalPending);
+  const fromDisplay = company.name.replace(/["<>]/g, "");
+
+  const subject = `You've earned ${justEarned} from ${company.name} — claim it`;
+
+  const html = `
+    <div style="font-family:system-ui,sans-serif;color:#222;max-width:560px;">
+      <h2 style="color:${company.primaryColor};margin-bottom:8px;">
+        Your referral paid off, ${esc(firstName)}
+      </h2>
+      <p style="color:#444;line-height:1.5;">
+        Someone you referred to <strong>${esc(company.name)}</strong> has gone
+        ahead, which means you've earned <strong>${esc(justEarned)}</strong>${
+          amounts.totalPending > amounts.justEarned
+            ? ` (<strong>${esc(totalPending)}</strong> waiting for you in total)`
+            : ""
+        }.
+      </p>
+      <p style="color:#444;line-height:1.5;">
+        To collect it, set up your account and add your bank details — takes a
+        minute. This is the only sign-up you need, and you're doing it with
+        money already waiting.
+      </p>
+      <p style="margin-top:20px;">
+        <a href="${claimUrl}" style="background:${company.primaryColor};color:#fff;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:500;display:inline-block;">Claim your ${esc(justEarned)}</a>
+      </p>
+      <p style="color:#666;font-size:13px;margin-top:16px;">
+        Or paste this link: <span style="word-break:break-all;">${claimUrl}</span>
+      </p>
+      <p style="margin-top:24px;color:#999;font-size:12px;">
+        Your bank details are encrypted the moment you save them and only
+        ${esc(company.name)} can see them. Questions? Just reply to this email.
+      </p>
+    </div>
+  `;
+
+  const text = [
+    `Your referral paid off, ${firstName}`,
+    ``,
+    `Someone you referred to ${company.name} has gone ahead — you've earned ${justEarned}${amounts.totalPending > amounts.justEarned ? ` (${totalPending} waiting in total)` : ""}.`,
+    ``,
+    `Set up your account and add your bank details to collect it — the only sign-up you need, with money already waiting:`,
+    claimUrl,
+    ``,
+    `Your bank details are encrypted on save and only ${company.name} can see them. Questions? Just reply to this email.`,
+  ].join("\n");
+
+  try {
+    await resend.emails.send({
+      from: `${fromDisplay} <${FROM_EMAIL}>`,
+      to: referrer.email,
+      replyTo: company.contactEmail,
+      subject,
+      html,
+      text,
+    });
+  } catch (err) {
+    console.error("[email] claim-reward email failed:", err);
+  }
+}
+
+/**
+ * Goes to a PARTNER when a COMPANY_ADMIN logs a lead on their behalf —
+ * e.g. a referral the partner sent by WhatsApp or phone rather than
+ * through the app. Reassures them it's captured and they'll be paid as it
+ * progresses, and nudges them into the app's own flow (see it tracked,
+ * add bank details). Branded as the company, same as the welcome email,
+ * because the partner's relationship is with the company, not TradeRefer.
+ */
+export async function sendLeadLoggedToPartnerEmail(
+  partner: { email: string; fullName: string | null },
+  company: CompanyPayload,
+  referral: { customerName: string; services: string[] },
+): Promise<void> {
+  if (!resend) {
+    console.warn(
+      `[email] no RESEND_API_KEY — lead-logged notice for ${partner.email} skipped`,
+    );
+    return;
+  }
+
+  const firstName = partner.fullName?.trim().split(/\s+/)[0] || "there";
+  const hasAppointment = Number(company.payoutAppointment) > 0;
+  const appointment = formatCompanyMoney(
+    company,
+    Number(company.payoutAppointment),
+  );
+  const job = formatCompanyMoney(company, Number(company.payoutJob));
+  const total = formatCompanyMoney(
+    company,
+    Number(company.payoutAppointment) + Number(company.payoutJob),
+  );
+  const referralsLink = `${APP_URL}/dashboard/referrals`;
+  const settingsLink = `${APP_URL}/dashboard/settings`;
+  const fromDisplay = company.name.replace(/["<>]/g, "");
+
+  const subject = `${company.name} has logged your referral — you're in line to earn ${hasAppointment ? total : job}`;
+
+  const dealRows = hasAppointment
+    ? `<tr><td style="padding:4px 16px 4px 0;color:#888;">Appointment booked</td><td style="padding:4px 0;font-weight:600;">${esc(appointment)}</td></tr>
+       <tr><td style="padding:4px 16px 4px 0;color:#888;">Job sells</td><td style="padding:4px 0;font-weight:600;">${esc(job)} more</td></tr>
+       <tr><td style="padding:4px 16px 4px 0;color:#888;">Per customer</td><td style="padding:4px 0;font-weight:600;color:${company.primaryColor};">up to ${esc(total)}</td></tr>`
+    : `<tr><td style="padding:4px 16px 4px 0;color:#888;">Job sells</td><td style="padding:4px 0;font-weight:600;color:${company.primaryColor};">${esc(job)}</td></tr>`;
+
+  const html = `
+    <div style="font-family:system-ui,sans-serif;color:#222;max-width:560px;">
+      <h2 style="color:${company.primaryColor};margin-bottom:8px;">
+        We've logged your referral, ${esc(firstName)}
+      </h2>
+      <p style="color:#444;line-height:1.5;">
+        <strong>${esc(company.name)}</strong> has logged the customer you
+        passed on — <strong>${esc(referral.customerName)}</strong>${
+          referral.services.length
+            ? ` (${esc(referral.services.join(", "))})`
+            : ""
+        }. It's now tracked in your ${esc(platform.name)} account, and you'll
+        be paid as it moves forward.
+      </p>
+      <table style="border-collapse:collapse;font-size:14px;margin:20px 0;">
+        ${dealRows}
+      </table>
+      <p style="color:#444;line-height:1.5;">
+        You don't need to do anything — ${esc(company.name)} will contact the
+        customer and take it from here. You can follow its progress any time:
+      </p>
+      <p style="margin-top:20px;">
+        <a href="${referralsLink}" style="background:${company.primaryColor};color:#fff;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:500;display:inline-block;">See your referrals</a>
+      </p>
+      <p style="margin-top:28px;color:#999;font-size:12px;">
+        Make sure your <a href="${settingsLink}" style="color:${company.primaryColor};">bank details</a>
+        are in so ${esc(company.name)} can pay you when this lands — they're
+        encrypted and only ${esc(company.name)} can see them. Not the customer
+        you sent? Just reply to this email and we'll put it right.
+      </p>
+    </div>
+  `;
+
+  const text = [
+    `We've logged your referral, ${firstName}`,
+    ``,
+    `${company.name} has logged the customer you passed on — ${referral.customerName}${referral.services.length ? ` (${referral.services.join(", ")})` : ""}. It's now tracked in your ${platform.name} account, and you'll be paid as it moves forward.`,
+    ``,
+    ...(hasAppointment
+      ? [
+          `Appointment booked:  ${appointment}`,
+          `Job sells:           ${job} more`,
+          `Per customer:        up to ${total}`,
+        ]
+      : [`Job sells:           ${job}`]),
+    ``,
+    `You don't need to do anything — ${company.name} will contact the customer and take it from here.`,
+    ``,
+    `See your referrals: ${referralsLink}`,
+    ``,
+    `Make sure your bank details are in so ${company.name} can pay you: ${settingsLink}`,
+    `Not the customer you sent? Just reply to this email and we'll put it right.`,
+  ].join("\n");
+
+  try {
+    await resend.emails.send({
+      from: `${fromDisplay} <${FROM_EMAIL}>`,
+      to: partner.email,
+      replyTo: company.contactEmail,
+      subject,
+      html,
+      text,
+    });
+  } catch (err) {
+    console.error("[email] lead-logged-to-partner failed:", err);
+  }
+}
+
+/**
+ * Goes to a PARTNER the moment a payout goes PENDING for them while
+ * they have no bank details on file. This is the "Sarah refers a
+ * customer, the appointment books, £50 sits unpayable, Sarah ghosts"
+ * loop-closer. Branded as the company, same as the welcome email.
+ *
+ * Sent once per triggering status change (not on a nagging schedule) —
+ * the company's payouts page flags missing details for manual chasing
+ * if this doesn't land.
+ */
+export async function sendBankDetailsNeededEmail(
+  partner: { email: string; fullName: string | null },
+  company: CompanyPayload,
+  amounts: { justEarned: number; totalPending: number },
+): Promise<void> {
+  if (!resend) {
+    console.warn(
+      `[email] no RESEND_API_KEY — bank-details-needed for ${partner.email} skipped`,
+    );
+    return;
+  }
+
+  const firstName = partner.fullName?.trim().split(/\s+/)[0] || "there";
+  const justEarned = formatCompanyMoney(company, amounts.justEarned);
+  const totalPending = formatCompanyMoney(company, amounts.totalPending);
+  const settingsLink = `${APP_URL}/dashboard/settings`;
+  const fromDisplay = company.name.replace(/["<>]/g, "");
+
+  const subject = `You've earned ${justEarned} — add your bank details so ${company.name} can pay you`;
+
+  const html = `
+    <div style="font-family:system-ui,sans-serif;color:#222;max-width:560px;">
+      <h2 style="color:${company.primaryColor};margin-bottom:8px;">
+        Good news, ${esc(firstName)} — you're owed money
+      </h2>
+      <p style="color:#444;line-height:1.5;">
+        One of your referrals just moved forward, which puts
+        <strong> ${esc(justEarned)}</strong> in your pending payouts
+        ${
+          amounts.totalPending > amounts.justEarned
+            ? `(<strong>${esc(totalPending)}</strong> pending in total)`
+            : ""
+        }.
+      </p>
+      <p style="color:#444;line-height:1.5;">
+        One snag: <strong>${esc(company.name)} has nowhere to send it</strong> —
+        you haven't added your bank details yet. Takes under a minute:
+      </p>
+      <p style="margin-top:20px;">
+        <a href="${settingsLink}" style="background:${company.primaryColor};color:#fff;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:500;display:inline-block;">Add my bank details</a>
+      </p>
+      <p style="margin-top:24px;color:#999;font-size:12px;">
+        Your sort code and account number are encrypted the moment you save
+        them, and only ${esc(company.name)} can see them — and only when
+        they're actually paying you. Questions? Just reply to this email.
+      </p>
+    </div>
+  `;
+
+  const text = [
+    `Good news, ${firstName} — you're owed money`,
+    ``,
+    `One of your referrals just moved forward, which puts ${justEarned} in your pending payouts${amounts.totalPending > amounts.justEarned ? ` (${totalPending} pending in total)` : ""}.`,
+    ``,
+    `One snag: ${company.name} has nowhere to send it — you haven't added your bank details yet. Takes under a minute:`,
+    ``,
+    settingsLink,
+    ``,
+    `Your details are encrypted on save and only ${company.name} can see them. Questions? Just reply to this email.`,
+  ].join("\n");
+
+  try {
+    await resend.emails.send({
+      from: `${fromDisplay} <${FROM_EMAIL}>`,
+      to: partner.email,
+      replyTo: company.contactEmail,
+      subject,
+      html,
+      text,
+    });
+  } catch (err) {
+    console.error("[email] bank-details-needed failed:", err);
+  }
+}
+
+// Goes to the new Company admin when they sign up — confirms the account
+// is set up and gives them the key URLs (landing page, partner signup link,
+// login). Sent in addition to (not instead of) the operator notification.
+//
+// Does not require NOTIFY_EMAIL to be configured — sends directly to the
+// company contactEmail. The platform RESEND_API_KEY is the only hard
+// requirement; without it we log a warning and move on.
+export async function sendCompanyWelcomeEmail(
+  company: Pick<Company, "name" | "slug" | "contactEmail" | "trialEndsAt">,
+  ownerName: string,
+): Promise<void> {
+  if (!resend) {
+    console.warn(
+      `[email] no RESEND_API_KEY — welcome email for ${company.contactEmail} skipped`,
+    );
+    return;
+  }
+
+  const landingLink = `${APP_URL}/${company.slug}`;
+  const signupLink = `${APP_URL}/${company.slug}/signup`;
+  const loginLink = `${APP_URL}/login`;
+  const settingsLink = `${APP_URL}/company/settings`;
+  // The company-to-company referral link: refer another trade business to
+  // TradeRefer and knock money off your own subscription.
+  const referralLink = `${APP_URL}/signup?ref=${company.slug}`;
+
+  const trialEndsFormatted = company.trialEndsAt
+    ? company.trialEndsAt.toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : null;
+
+  const subject = `Welcome to ${platform.name}, ${company.name}`;
+  const firstName = ownerName.split(" ")[0] || ownerName;
+
+  const html = `
+    <div style="font-family:system-ui,sans-serif;color:#222;max-width:600px;">
+      <h2 style="color:${platform.colors.primary};margin-bottom:4px;">Welcome to ${esc(platform.name)}, ${esc(firstName)}</h2>
+      <p style="color:#666;margin-top:0;">
+        Your ${esc(platform.name)} account is set up and your branded landing
+        page is live. Here's everything you need to get started.
+      </p>
+
+      <h3 style="margin-top:28px;color:${platform.colors.primary};font-size:15px;">Your links</h3>
+      <table style="border-collapse:collapse;font-size:14px;width:100%;">
+        <tr>
+          <td style="padding:6px 12px 6px 0;color:#888;vertical-align:top;width:160px;">Landing page</td>
+          <td style="padding:6px 0;"><a href="${landingLink}" style="color:${platform.colors.primary};word-break:break-all;">${esc(landingLink)}</a><br/><span style="color:#999;font-size:12px;">Public marketing page — share this with potential customers</span></td>
+        </tr>
+        <tr>
+          <td style="padding:6px 12px 6px 0;color:#888;vertical-align:top;">Partner signup link</td>
+          <td style="padding:6px 0;"><a href="${signupLink}" style="color:${platform.colors.primary};word-break:break-all;font-weight:500;">${esc(signupLink)}</a><br/><span style="color:#999;font-size:12px;">Send this to the tradesmen, past customers and contacts you want referrals from</span></td>
+        </tr>
+        <tr>
+          <td style="padding:6px 12px 6px 0;color:#888;vertical-align:top;">Refer a business</td>
+          <td style="padding:6px 0;"><a href="${referralLink}" style="color:${platform.colors.primary};word-break:break-all;font-weight:500;">${esc(referralLink)}</a><br/><span style="color:#999;font-size:12px;">Know another trade business? Refer them to ${esc(platform.name)} and take 25% off your own subscription for as long as they stay — refer four and yours is free</span></td>
+        </tr>
+        <tr>
+          <td style="padding:6px 12px 6px 0;color:#888;vertical-align:top;">Log in</td>
+          <td style="padding:6px 0;"><a href="${loginLink}" style="color:${platform.colors.primary};">${esc(loginLink)}</a></td>
+        </tr>
+      </table>
+
+      ${
+        trialEndsFormatted
+          ? `<h3 style="margin-top:28px;color:${platform.colors.primary};font-size:15px;">Your free trial</h3>
+      <p style="font-size:14px;color:#444;margin:6px 0;">
+        You're on a ${platform.pricing.trialDays}-day free trial until
+        <strong>${esc(trialEndsFormatted)}</strong>. After that it's
+        ${platform.pricing.currencySymbol}${platform.pricing.monthly}/month.
+        Cancel anytime — no contracts.
+      </p>`
+          : ""
+      }
+
+      <h3 style="margin-top:28px;color:${platform.colors.primary};font-size:15px;">First steps</h3>
+      <ol style="font-size:14px;color:#444;padding-left:20px;">
+        <li style="margin-bottom:8px;"><strong>Share your signup link</strong> with the tradesmen, past customers and contacts you want to refer customers from.</li>
+        <li style="margin-bottom:8px;"><strong>Upload your logo and pick your brand colours</strong> — they'll show on your landing page and partner dashboards.</li>
+        <li style="margin-bottom:8px;"><strong>Tune your payouts</strong> — set what you pay per appointment and per job sold.</li>
+      </ol>
+
+      <p style="margin-top:24px;">
+        <a href="${settingsLink}" style="background:${platform.colors.primary};color:#fff;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:500;display:inline-block;">Open your settings</a>
+      </p>
+
+      <p style="margin-top:32px;color:#999;font-size:12px;">
+        Need a hand? Reply to this email or write to
+        <a href="mailto:${esc(platform.supportEmail)}" style="color:${platform.colors.primary};">${esc(platform.supportEmail)}</a>.
+      </p>
+    </div>
+  `;
+
+  const text = [
+    `Welcome to ${platform.name}, ${firstName}`,
+    ``,
+    `Your ${platform.name} account is set up and your branded landing page is live.`,
+    ``,
+    `YOUR LINKS`,
+    `Landing page:        ${landingLink}`,
+    `Partner signup link: ${signupLink}`,
+    `Refer a business:    ${referralLink}  (25% off your subscription per referral; four = free)`,
+    `Log in:              ${loginLink}`,
+    ``,
+    trialEndsFormatted
+      ? `Free trial ends: ${trialEndsFormatted} (${platform.pricing.trialDays}-day trial, then ${platform.pricing.currencySymbol}${platform.pricing.monthly}/month)`
+      : null,
+    ``,
+    `FIRST STEPS`,
+    `1. Share your signup link with the tradesmen, past customers and contacts you want to refer customers from`,
+    `2. Upload your logo and pick your brand colours`,
+    `3. Tune your payouts (per appointment, per job sold)`,
+    ``,
+    `Open your settings: ${settingsLink}`,
+    ``,
+    `Need a hand? Reply to this email or write to ${platform.supportEmail}.`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: company.contactEmail,
+      replyTo: platform.supportEmail,
+      subject,
+      html,
+      text,
+    });
+  } catch (err) {
+    console.error("[email] welcome email failed:", err);
   }
 }
 
@@ -396,6 +1254,172 @@ export async function sendTeamInviteEmail(
     });
   } catch (err) {
     console.error("[email] team invite failed:", err);
+  }
+}
+
+/**
+ * Email a referrer when their referred company makes its first payment
+ * (so the discount has just activated). Sent to the company's
+ * contactEmail. Short, transactional — celebrates the win without
+ * marketing fluff.
+ */
+export async function sendReferralQualifiedEmail(
+  referrer: { contactEmail: string; name: string },
+  referredCompanyName: string,
+  newPercentOff: number,
+  monthlyPrice: number,
+  currencySymbol: string,
+): Promise<void> {
+  if (!resend) {
+    console.warn(
+      `[email] no RESEND_API_KEY — referral-qualified email for ${referrer.contactEmail} skipped`,
+    );
+    return;
+  }
+
+  const newMonthly = Math.max(
+    0,
+    monthlyPrice - (monthlyPrice * newPercentOff) / 100,
+  );
+  const subject =
+    newPercentOff === 100
+      ? `🎉 ${referredCompanyName} just paid — your ${platform.name} subscription is free`
+      : `${referredCompanyName} just paid — you're now ${newPercentOff}% off`;
+
+  const html = `
+    <div style="font-family:system-ui,sans-serif;color:#222;max-width:560px;">
+      <h2 style="color:${platform.colors.primary};margin-bottom:8px;">
+        ${
+          newPercentOff === 100
+            ? "Your subscription is now free"
+            : `Your discount just bumped to ${newPercentOff}%`
+        }
+      </h2>
+      <p style="color:#444;line-height:1.5;">
+        Good news ${esc(referrer.name.split(" ")[0] || "")} —
+        <strong>${esc(referredCompanyName)}</strong> just made their first
+        payment on ${esc(platform.name)}. That activates your referral
+        discount.
+      </p>
+      <table style="border-collapse:collapse;font-size:14px;margin:20px 0;">
+        <tr><td style="padding:4px 16px 4px 0;color:#888;">Your new rate</td><td style="padding:4px 0;font-weight:600;">${esc(currencySymbol)}${newMonthly.toFixed(2)}/month</td></tr>
+        <tr><td style="padding:4px 16px 4px 0;color:#888;">Discount applied</td><td style="padding:4px 0;">${newPercentOff}% off ${esc(currencySymbol)}${monthlyPrice}</td></tr>
+        <tr><td style="padding:4px 16px 4px 0;color:#888;">When it lands</td><td style="padding:4px 0;">From your next invoice</td></tr>
+      </table>
+      <p style="color:#666;font-size:13px;">
+        The discount stays as long as ${esc(referredCompanyName)} keeps
+        their subscription. If they cancel you'll lose that 25% slice —
+        we'll let you know if that happens.
+      </p>
+      ${
+        newPercentOff < 100
+          ? `<p style="color:#666;font-size:13px;">Refer ${(100 - newPercentOff) / 25} more paying companies and your subscription is free forever.</p>`
+          : ""
+      }
+      <p style="margin-top:24px;">
+        <a href="${APP_URL}/company/network" style="background:${platform.colors.primary};color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:500;display:inline-block;">View your network</a>
+      </p>
+    </div>
+  `;
+
+  const text = [
+    newPercentOff === 100
+      ? `Your ${platform.name} subscription is now free.`
+      : `Your discount just bumped to ${newPercentOff}%.`,
+    ``,
+    `${referredCompanyName} just made their first payment on ${platform.name}.`,
+    ``,
+    `Your new rate: ${currencySymbol}${newMonthly.toFixed(2)}/month`,
+    `Discount applied: ${newPercentOff}% off ${currencySymbol}${monthlyPrice}`,
+    `When it lands: from your next invoice`,
+    ``,
+    `View your network: ${APP_URL}/company/network`,
+  ].join("\n");
+
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: referrer.contactEmail,
+      subject,
+      html,
+      text,
+    });
+  } catch (err) {
+    console.error("[email] referral-qualified send failed:", err);
+  }
+}
+
+/**
+ * Email a referrer when one of their referred companies churns (so
+ * their discount has just dropped). Honest, not dramatic. We tell them
+ * the new rate, not how much they "lost" — different framing.
+ */
+export async function sendReferralChurnedEmail(
+  referrer: { contactEmail: string; name: string },
+  churnedCompanyName: string,
+  newPercentOff: number,
+  monthlyPrice: number,
+  currencySymbol: string,
+): Promise<void> {
+  if (!resend) {
+    console.warn(
+      `[email] no RESEND_API_KEY — referral-churned email for ${referrer.contactEmail} skipped`,
+    );
+    return;
+  }
+
+  const newMonthly = Math.max(
+    0,
+    monthlyPrice - (monthlyPrice * newPercentOff) / 100,
+  );
+  const subject = `${churnedCompanyName} cancelled — your ${platform.name} discount is now ${newPercentOff}%`;
+
+  const html = `
+    <div style="font-family:system-ui,sans-serif;color:#222;max-width:560px;">
+      <h2 style="color:${platform.colors.primary};margin-bottom:8px;">
+        ${esc(churnedCompanyName)} has cancelled their ${esc(platform.name)} subscription
+      </h2>
+      <p style="color:#444;line-height:1.5;">
+        That removes one of your referral discount slices — your
+        subscription will be ${esc(currencySymbol)}${newMonthly.toFixed(2)}/month from
+        the next invoice (was ${esc(currencySymbol)}${monthlyPrice} at the
+        full rate).
+      </p>
+      <p style="color:#666;font-size:13px;">
+        ${
+          newPercentOff === 0
+            ? `Refer another paying company and you're back to 25% off.`
+            : `You're still at ${newPercentOff}% off thanks to your other active referrals.`
+        }
+      </p>
+      <p style="margin-top:24px;">
+        <a href="${APP_URL}/company/network" style="background:${platform.colors.primary};color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:500;display:inline-block;">View your network</a>
+      </p>
+    </div>
+  `;
+
+  const text = [
+    `${churnedCompanyName} has cancelled their ${platform.name} subscription.`,
+    ``,
+    `Your subscription will be ${currencySymbol}${newMonthly.toFixed(2)}/month from the next invoice (was ${currencySymbol}${monthlyPrice} at the full rate).`,
+    ``,
+    newPercentOff === 0
+      ? `Refer another paying company and you're back to 25% off.`
+      : `You're still at ${newPercentOff}% off thanks to your other active referrals.`,
+    ``,
+    `View your network: ${APP_URL}/company/network`,
+  ].join("\n");
+
+  try {
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to: referrer.contactEmail,
+      subject,
+      html,
+      text,
+    });
+  } catch (err) {
+    console.error("[email] referral-churned send failed:", err);
   }
 }
 

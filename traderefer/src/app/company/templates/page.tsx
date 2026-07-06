@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { requireCompanyAdmin } from "@/lib/auth";
+import { SubNav, TEMPLATE_TABS } from "@/components/SubNav";
 import { upsertTemplateAction, deleteTemplateAction } from "./actions";
 
 export default async function CompanyTemplatesPage() {
@@ -11,9 +12,9 @@ export default async function CompanyTemplatesPage() {
 
   return (
     <div className="space-y-8">
+      <SubNav items={TEMPLATE_TABS} active="/company/templates" />
       <h1
         className="text-2xl font-bold text-brand"
-        style={{ fontFamily: "Fraunces, serif" }}
       >
         Message templates
       </h1>

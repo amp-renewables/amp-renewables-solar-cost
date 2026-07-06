@@ -3,10 +3,15 @@
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { createSession, hashPassword } from "@/lib/auth";
+import { createSession, hashPassword, verifyPassword } from "@/lib/auth";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { findAvailableSlug } from "@/lib/company";
 import { platform } from "@/lib/platform";
-import { sendNewCompanySignupNotification } from "@/lib/email";
+import {
+  sendCompanyWelcomeEmail,
+  sendNewCompanySignupNotification,
+} from "@/lib/email";
+import { sendSms } from "@/lib/sms";
 
 const SignupSchema = z.object({
   companyName: z.string().trim().min(2, "Please enter your company name"),
@@ -14,6 +19,11 @@ const SignupSchema = z.object({
   email: z.string().trim().email("Please enter a valid email"),
   phone: z.string().trim().min(7, "Please enter a valid phone number"),
   password: z.string().min(8, "Password must be at least 8 characters"),
+  // Optional referrer slug from ?ref=<slug>. Hidden form input. We look
+  // up the matching Company server-side; if it doesn't exist or is the
+  // same company (self-referral is meaningless), we silently drop the
+  // link. Bad input here never breaks signup.
+  referrerSlug: z.string().trim().optional(),
 });
 
 export type CompanySignupState = {
@@ -25,12 +35,23 @@ export async function companySignupAction(
   _prev: CompanySignupState,
   formData: FormData,
 ): Promise<CompanySignupState> {
+  const limited = await rateLimit("signup-company", await clientIp(), {
+    limit: 6,
+    windowSec: 3600,
+  });
+  if (!limited.ok) {
+    return {
+      formError: "Too many sign-up attempts. Please wait a little and try again.",
+    };
+  }
+
   const parsed = SignupSchema.safeParse({
     companyName: formData.get("companyName"),
     ownerName: formData.get("ownerName"),
     email: formData.get("email"),
     phone: formData.get("phone"),
     password: formData.get("password"),
+    referrerSlug: formData.get("referrerSlug") || undefined,
   });
 
   if (!parsed.success) {
@@ -47,9 +68,23 @@ export async function companySignupAction(
   const data = parsed.data;
   const email = data.email.toLowerCase();
 
+  // Multi-org: an email that already has an account (say, a partner
+  // referring to someone else's programme) can start their OWN company
+  // on the same login — provided the password they typed matches their
+  // existing one, which proves they own the account rather than someone
+  // hijacking a known email.
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
-    return { formError: "An account already exists for that email address." };
+    const ok = await verifyPassword(
+      data.password,
+      existingUser.hashedPassword,
+    );
+    if (!ok) {
+      return {
+        formError:
+          "An account already exists for that email. Enter your existing password to add a company to it, or use a different email.",
+      };
+    }
   }
 
   const slug = await findAvailableSlug(data.companyName);
@@ -57,9 +92,27 @@ export async function companySignupAction(
     Date.now() + platform.pricing.trialDays * 24 * 60 * 60 * 1000,
   );
 
-  const hashed = await hashPassword(data.password);
+  const hashed = existingUser
+    ? existingUser.hashedPassword
+    : await hashPassword(data.password);
 
-  const { user, company } = await prisma.$transaction(async (tx) => {
+  // Resolve the optional referrer. Looked up server-side so the form
+  // value can't link to a company that doesn't exist. Self-referral is
+  // blocked because the new company doesn't have an id yet (so its
+  // slug can't match) — but kept as a defensive comparison in case the
+  // signup flow ever changes to two-step.
+  const normalisedReferrerSlug = data.referrerSlug?.toLowerCase().trim();
+  const referrer = normalisedReferrerSlug
+    ? await prisma.company.findUnique({
+        where: { slug: normalisedReferrerSlug },
+        select: { id: true, slug: true },
+      })
+    : null;
+  const referredByCompanyId =
+    referrer && referrer.slug !== slug ? referrer.id : null;
+
+  const { user, company, membership } = await prisma.$transaction(
+    async (tx) => {
     const company = await tx.company.create({
       data: {
         slug,
@@ -68,6 +121,7 @@ export async function companySignupAction(
         contactPhone: data.phone,
         status: "TRIAL",
         trialEndsAt,
+        referredByCompanyId,
         // Sensible defaults — the COMPANY_ADMIN can refine on their settings page.
         services: ["Solar PV", "Battery Storage", "EV Charger", "Heat Pump"],
         payoutAppointment: 50,
@@ -75,15 +129,23 @@ export async function companySignupAction(
       },
     });
 
-    const user = await tx.user.create({
+    const user = existingUser
+      ? existingUser
+      : await tx.user.create({
+          data: {
+            email,
+            hashedPassword: hashed,
+            fullName: data.ownerName,
+            businessName: data.companyName,
+            phone: data.phone,
+          },
+        });
+
+    const membership = await tx.membership.create({
       data: {
-        email,
-        hashedPassword: hashed,
-        fullName: data.ownerName,
-        businessName: data.companyName,
-        phone: data.phone,
-        role: "COMPANY_ADMIN",
+        userId: user.id,
         companyId: company.id,
+        role: "COMPANY_ADMIN",
       },
     });
 
@@ -115,11 +177,34 @@ export async function companySignupAction(
       ],
     });
 
-    return { user, company };
-  });
+    return { user, company, membership };
+    },
+  );
 
-  await sendNewCompanySignupNotification(company, data.ownerName);
+  // Emails + a welcome text, all fire-and-forget — a failing send must
+  // never block signup. Run in parallel so we don't stack round-trips.
+  // The text carries the two links the admin acts on: the partner signup
+  // link (to start getting referrals) and the company referral link (to
+  // cut their own fee). sendSms no-ops if Twilio isn't set up / non-mobile.
+  const base = process.env.APP_URL || platform.url;
+  const adminFirstName = data.ownerName.split(" ")[0] || data.ownerName;
+  await Promise.all([
+    sendNewCompanySignupNotification(company, data.ownerName),
+    sendCompanyWelcomeEmail(company, data.ownerName),
+    company.contactPhone
+      ? sendSms(
+          company.contactPhone,
+          `Welcome to ${platform.name}, ${adminFirstName}. Share your partner signup link with tradesmen to get referrals: ${base}/${company.slug}/signup — and refer another business for 25% off your subscription: ${base}/signup?ref=${company.slug} Reply STOP to opt out.`,
+        )
+      : Promise.resolve(),
+  ]);
 
-  await createSession(user.id, user.role, user.companyId);
-  redirect("/company?welcome=1");
+  // Sign them in acting as the new company's admin. For an existing
+  // user this replaces their current session context — they can switch
+  // back to their other memberships from the nav.
+  await createSession(user.id, membership.id);
+  // Land new signups on /company/settings — they need to upload a logo,
+  // tune payouts, and grab their signup link. Dropping them on /company
+  // (an empty referrals dashboard) is disorienting on day one.
+  redirect("/company/settings?welcome=1");
 }

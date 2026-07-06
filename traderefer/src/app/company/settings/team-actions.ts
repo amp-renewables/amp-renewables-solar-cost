@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { hashPassword, requireCompanyAdmin } from "@/lib/auth";
+import { assertCompanyCanWriteById } from "@/lib/stripe";
 import { sendTeamInviteEmail } from "@/lib/email";
 import { platform } from "@/lib/platform";
 import { MAX_TEAM_SIZE } from "./team-config";
@@ -31,6 +32,7 @@ export async function inviteTeamMemberAction(
   formData: FormData,
 ): Promise<InviteState> {
   const admin = await requireCompanyAdmin();
+  await assertCompanyCanWriteById(admin.companyId);
   const parsed = InviteSchema.safeParse({
     fullName: formData.get("fullName"),
     email: formData.get("email"),
@@ -49,7 +51,7 @@ export async function inviteTeamMemberAction(
   const email = parsed.data.email.toLowerCase();
 
   // Enforce the team-size limit.
-  const teamCount = await prisma.user.count({
+  const teamCount = await prisma.membership.count({
     where: { companyId: admin.companyId, role: "COMPANY_ADMIN" },
   });
   if (teamCount >= MAX_TEAM_SIZE) {
@@ -58,13 +60,45 @@ export async function inviteTeamMemberAction(
     };
   }
 
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const company = await prisma.company.findUnique({
+    where: { id: admin.companyId },
+    select: { name: true },
+  });
+  const base =
+    process.env.APP_URL ||
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    platform.url;
+
+  // Multi-org: the invitee may already have a TradeRefer account (a
+  // partner here or elsewhere, or an admin of their own company). In
+  // that case we just attach an admin membership and point them at
+  // login — no password dance, their existing credentials work.
+  const existing = await prisma.user.findUnique({
+    where: { email },
+    include: { memberships: { where: { companyId: admin.companyId } } },
+  });
   if (existing) {
-    return {
-      errors: {
-        email: "An account already exists for that email address.",
+    if (existing.memberships.length > 0) {
+      return {
+        errors: {
+          email: "That person is already part of this company.",
+        },
+      };
+    }
+    await prisma.membership.create({
+      data: {
+        userId: existing.id,
+        companyId: admin.companyId,
+        role: "COMPANY_ADMIN",
       },
-    };
+    });
+    await sendTeamInviteEmail(
+      { email, fullName: existing.fullName ?? parsed.data.fullName },
+      { name: company?.name ?? "your company", inviter: admin.fullName ?? admin.email },
+      `${base}/login`,
+    );
+    revalidatePath("/company/settings");
+    return { ok: `${email} added — they can switch to this company after logging in.` };
   }
 
   // Create the user with a random password they'll never use (they'll set
@@ -73,11 +107,6 @@ export async function inviteTeamMemberAction(
   const placeholderPassword = crypto.randomBytes(32).toString("base64url");
   const hashedPlaceholder = await hashPassword(placeholderPassword);
 
-  const company = await prisma.company.findUnique({
-    where: { id: admin.companyId },
-    select: { name: true },
-  });
-
   const { rawToken } = await prisma.$transaction(async (tx) => {
     const newUser = await tx.user.create({
       data: {
@@ -85,8 +114,13 @@ export async function inviteTeamMemberAction(
         hashedPassword: hashedPlaceholder,
         fullName: parsed.data.fullName,
         businessName: company?.name ?? null,
-        role: "COMPANY_ADMIN",
+      },
+    });
+    await tx.membership.create({
+      data: {
+        userId: newUser.id,
         companyId: admin.companyId,
+        role: "COMPANY_ADMIN",
       },
     });
     const rawToken = crypto.randomBytes(32).toString("base64url");
@@ -100,10 +134,6 @@ export async function inviteTeamMemberAction(
     return { rawToken };
   });
 
-  const base =
-    process.env.APP_URL ||
-    process.env.NEXT_PUBLIC_BASE_URL ||
-    platform.url;
   const inviteUrl = `${base}/reset-password?token=${rawToken}`;
 
   await sendTeamInviteEmail(
@@ -118,23 +148,36 @@ export async function inviteTeamMemberAction(
 
 export async function removeTeamMemberAction(formData: FormData) {
   const admin = await requireCompanyAdmin();
+  await assertCompanyCanWriteById(admin.companyId);
   const targetId = String(formData.get("userId") || "");
   if (!targetId || targetId === admin.id) return;
 
-  const target = await prisma.user.findUnique({
-    where: { id: targetId },
-    select: { companyId: true, role: true },
+  // Multi-org: removing someone from THIS team must not nuke their
+  // whole account — they may be a partner or admin elsewhere. Delete the
+  // membership; any session acting as it self-heals to another of their
+  // memberships (Session.activeMembershipId is SetNull on delete).
+  const target = await prisma.membership.findUnique({
+    where: {
+      userId_companyId: { userId: targetId, companyId: admin.companyId },
+    },
+    include: {
+      user: { select: { isSuperadmin: true, _count: { select: { memberships: true, referrals: true } } } },
+    },
   });
-  if (
-    !target ||
-    target.companyId !== admin.companyId ||
-    target.role !== "COMPANY_ADMIN"
-  ) {
-    return;
-  }
+  if (!target || target.role !== "COMPANY_ADMIN") return;
 
-  // Delete sessions + reset tokens first (cascade handles it actually,
-  // but being explicit reads better).
-  await prisma.user.delete({ where: { id: targetId } });
+  await prisma.membership.delete({ where: { id: target.id } });
+
+  // If that was their only membership and nothing else anchors the
+  // account (no referrals, not a superadmin), clean up the orphaned
+  // user row too. Restrict on Referral.partner makes the delete safe —
+  // best-effort, never blocks the removal itself.
+  if (
+    !target.user.isSuperadmin &&
+    target.user._count.memberships === 1 &&
+    target.user._count.referrals === 0
+  ) {
+    await prisma.user.delete({ where: { id: targetId } }).catch(() => {});
+  }
   revalidatePath("/company/settings");
 }

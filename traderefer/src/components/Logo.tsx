@@ -17,9 +17,12 @@ const SRC: Record<Variant, string> = {
   light: "/trade-refer-logo-white-transparent.png",
 };
 
+// A notch larger than the usual scale — the wordmark's roof glyph over
+// the T turns to mush below ~28px, reading as a stray mark rather than
+// a roof. The source PNGs are 2508px wide, so there's no upscaling.
 const HEIGHT: Record<Size, string> = {
-  sm: "h-6",
-  md: "h-9",
+  sm: "h-7",
+  md: "h-10",
   lg: "h-12",
 };
 

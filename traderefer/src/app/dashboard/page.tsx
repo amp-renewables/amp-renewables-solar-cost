@@ -9,6 +9,9 @@ import {
 import { platform, formatPrice } from "@/lib/platform";
 import { summarisePayouts } from "@/lib/payouts";
 import { StatusBadge } from "@/components/StatusBadge";
+import { CopyLinkButton } from "@/components/CopyLinkButton";
+import { partnerReferralUrl } from "@/lib/partner-link";
+import { NearbyProgrammes } from "./NearbyProgrammes";
 
 export default async function DashboardOverviewPage() {
   const user = await requirePartner();
@@ -54,7 +57,6 @@ export default async function DashboardOverviewPage() {
         <div>
           <h1
             className="text-2xl font-bold text-brand"
-            style={{ fontFamily: "Fraunces, serif" }}
           >
             Hi {user.fullName?.split(" ")[0] || "there"}
           </h1>
@@ -70,6 +72,28 @@ export default async function DashboardOverviewPage() {
           Refer a customer →
         </Link>
       </div>
+
+      {/* The partner's own shareable link — send it to customers, they
+          self-submit, the referral is credited here. The alternative to
+          adding a customer yourself via the refer form. */}
+      {user.membershipId && (
+        <div className="bg-white border border-slate-200 rounded-xl p-5">
+          <p className="font-semibold text-brand">Your referral link</p>
+          <p className="text-sm text-slate-600 mt-1">
+            Send this to customers — by text, WhatsApp or email. They fill in
+            their own details, {company.name} calls them, and you get paid. No
+            need to collect anything yourself.
+          </p>
+          <div className="mt-3 flex items-center gap-2 flex-wrap">
+            <code className="text-sm bg-slate-100 text-slate-700 rounded-lg px-3 py-2 break-all">
+              {partnerReferralUrl(company.slug, user.membershipId)}
+            </code>
+            <CopyLinkButton
+              value={partnerReferralUrl(company.slug, user.membershipId)}
+            />
+          </div>
+        </div>
+      )}
 
       {!hasBankDetails && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 flex items-start gap-3 flex-wrap">
@@ -94,7 +118,7 @@ export default async function DashboardOverviewPage() {
         </div>
       )}
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Stat label="Total referrals" value={String(totalReferrals)} />
         <Stat label="Jobs sold" value={String(jobsSold)} />
         <Stat
@@ -109,6 +133,10 @@ export default async function DashboardOverviewPage() {
         />
       </div>
 
+      {/* Pitched at businesses only — an ambassador referring as
+          themselves has no company to put on TradeRefer, so for them
+          this is noise. */}
+      {user.role === "BUSINESS_PARTNER" && (
       <section className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl p-6 sm:p-8 flex items-start gap-6 flex-wrap">
         <div className="flex-1 min-w-[260px]">
           <p className="text-xs uppercase tracking-wider text-slate-400 font-semibold mb-2">
@@ -116,14 +144,14 @@ export default async function DashboardOverviewPage() {
           </p>
           <h2
             className="text-xl sm:text-2xl font-bold mb-2"
-            style={{ fontFamily: "Fraunces, serif" }}
           >
             You&apos;ve got customers too. Get paid to refer them.
           </h2>
           <p className="text-slate-300 text-sm leading-relaxed">
             {user.businessName ? `Set ${user.businessName} up on` : "Set up"}{" "}
-            {platform.name} and let other tradesmen send customers your way.
-            Same setup you&apos;re using here — branded landing page, partner
+            {platform.name}{" "}
+            and let other tradesmen send customers your way. Same setup
+            you&apos;re using here — branded landing page, partner
             dashboards, automatic payouts. {formatPrice(platform.pricing.monthly)}
             /month after a {platform.pricing.trialDays}-day free trial.
           </p>
@@ -136,6 +164,7 @@ export default async function DashboardOverviewPage() {
           Start free trial →
         </a>
       </section>
+      )}
 
       <section>
         <div className="flex items-center justify-between mb-3">
@@ -190,6 +219,8 @@ export default async function DashboardOverviewPage() {
           </div>
         )}
       </section>
+
+      <NearbyProgrammes userId={user.id} currentCompanyId={user.companyId} />
     </div>
   );
 }

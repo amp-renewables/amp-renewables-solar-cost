@@ -2,19 +2,20 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireCompanyAdmin } from "@/lib/auth";
 import { getCurrentCompany, formatCompanyMoney } from "@/lib/company";
+import { companyWriteGate } from "@/lib/stripe";
 import { platform, formatPrice } from "@/lib/platform";
+import { getReferralStanding } from "@/lib/referral";
 import { StatusBadge } from "@/components/StatusBadge";
+import { CopyLinkButton } from "@/components/CopyLinkButton";
+import { CopyButton } from "@/components/CopyButton";
 
-export default async function CompanyOverviewPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ welcome?: string }>;
-}) {
+export default async function CompanyOverviewPage() {
   const user = await requireCompanyAdmin();
   const company = await getCurrentCompany();
   if (!company) return null;
-  const sp = await searchParams;
-  const welcome = sp.welcome === "1";
+  // Lapsed accounts keep their stats but customer identities are locked
+  // behind reactivation — same rule as the referrals list and detail.
+  const locked = !companyWriteGate(company).canWrite;
 
   const [
     totalReferrals,
@@ -38,8 +39,11 @@ export default async function CompanyOverviewPage({
         status: { in: ["JOB_SOLD", "JOB_INSTALLED"] },
       },
     }),
-    prisma.user.count({
-      where: { companyId: user.companyId, role: "PARTNER" },
+    prisma.membership.count({
+      where: {
+        companyId: user.companyId,
+        role: { in: ["BUSINESS_PARTNER", "AMBASSADOR"] },
+      },
     }),
     prisma.payout.aggregate({
       _sum: { amount: true },
@@ -64,6 +68,30 @@ export default async function CompanyOverviewPage({
   ]);
 
   const partnerSignupUrl = `${platform.url}/${company.slug}/signup`;
+  const referralStanding = await getReferralStanding(company.id);
+  const monthlyPrice = platform.pricing.monthly;
+  const referralMonthlySaving =
+    (monthlyPrice * referralStanding.percentOff) / 100;
+  const referralLink = `${platform.url}/signup?ref=${company.slug}`;
+
+  // The public "refer & earn" (Golden Ticket) link + a paste-anywhere HTML
+  // badge that links to it — like Checkatrade's embeddable badge. Inline
+  // styles only so it renders identically on any site with no dependencies.
+  // primaryColor is hex-validated on save; name is escaped for safety.
+  const referUrl = `${platform.url}/${company.slug}/refer`;
+  // Send this to past customers/advocates — they get their OWN shareable
+  // link (no signup) to forward on. Whoever fills in their link is credited
+  // to them; they only sign up if it pays out.
+  const referrerLinkUrl = `${platform.url}/${company.slug}/refer-link`;
+  const escName = company.name
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+  const badgeInner = company.logoUrl
+    ? `<img src="${company.logoUrl}" alt="${escName}" style="height:26px;width:auto;display:block" />`
+    : `<span style="color:${company.primaryColor};font-weight:800;font-size:15px">${escName}</span>`;
+  const embedSnippet = `<a href="${referUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:10px;background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;text-decoration:none;font-family:system-ui,-apple-system,sans-serif;box-shadow:0 1px 2px rgba(0,0,0,0.05)">${badgeInner}<span style="color:${company.primaryColor};font-weight:700;font-size:14px;white-space:nowrap">Refer &amp; earn &rarr;</span></a>`;
   const trialDaysLeft =
     company.status === "TRIAL" && company.trialEndsAt
       ? Math.max(
@@ -76,54 +104,87 @@ export default async function CompanyOverviewPage({
 
   return (
     <div className="space-y-8">
-      {welcome && (
-        <div className="bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl px-5 py-4">
-          <h2 className="font-semibold mb-1">
-            Welcome to {platform.name}, {company.name}!
-          </h2>
-          <p className="text-sm">
-            Your branded landing page is live at{" "}
+      {trialDaysLeft !== null && !company.isComped && (
+        <div
+          className={`border rounded-xl px-5 py-3 text-sm flex items-center justify-between gap-3 flex-wrap ${
+            trialDaysLeft <= 3
+              ? "bg-rose-50 border-rose-200 text-rose-900"
+              : "bg-amber-50 border-amber-200 text-amber-900"
+          }`}
+        >
+          <span>
+            {trialDaysLeft === 0 ? (
+              <>
+                <strong>Your free trial ends today.</strong> Upgrade to keep
+                full access — {formatPrice(platform.pricing.monthly)}/month.
+              </>
+            ) : (
+              <>
+                You&apos;re on a free trial — <strong>{trialDaysLeft}</strong>{" "}
+                day{trialDaysLeft === 1 ? "" : "s"} left. After that it&apos;s{" "}
+                {formatPrice(platform.pricing.monthly)}/month.
+              </>
+            )}
+          </span>
+          <Link
+            href="/company/billing"
+            className="bg-brand text-white font-semibold px-4 py-2 rounded-lg whitespace-nowrap hover:opacity-90"
+          >
+            Upgrade now →
+          </Link>
+        </div>
+      )}
+      {company.status !== "TRIAL" &&
+        company.status !== "ACTIVE" &&
+        !company.isComped && (
+          <div className="bg-rose-50 border border-rose-200 text-rose-900 rounded-xl px-5 py-3 text-sm flex items-center justify-between gap-3 flex-wrap">
+            <span>
+              {company.status === "PAST_DUE" ? (
+                <>
+                  <strong>Your last payment failed.</strong> Update your card
+                  to restore access.
+                </>
+              ) : (
+                <>
+                  <strong>Your subscription has ended.</strong> Resubscribe to
+                  start using {platform.name} again.
+                </>
+              )}
+            </span>
             <Link
-              href={`/${company.slug}`}
-              className="underline font-medium"
-              target="_blank"
+              href="/company/billing"
+              className="bg-brand text-white font-semibold px-4 py-2 rounded-lg whitespace-nowrap hover:opacity-90"
             >
-              {platform.domain}/{company.slug}
+              {company.status === "PAST_DUE"
+                ? "Update card →"
+                : "Resubscribe →"}
             </Link>
-            . Share that link with the tradesmen you want to refer customers
-            from. Head to <Link href="/company/settings" className="underline">Settings</Link> to upload your logo and tune your payouts.
-          </p>
-        </div>
-      )}
-
-      {trialDaysLeft !== null && (
-        <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-5 py-3 text-sm">
-          You&apos;re on a free trial — {trialDaysLeft} day
-          {trialDaysLeft === 1 ? "" : "s"} left. After that it&apos;s{" "}
-          {formatPrice(platform.pricing.monthly)}/month.
-        </div>
-      )}
+          </div>
+        )}
 
       <div>
         <h1
           className="text-2xl font-bold text-brand"
-          style={{ fontFamily: "Fraunces, serif" }}
         >
           Overview
         </h1>
-        <p className="text-slate-600 text-sm mt-1">
-          Your partner signup page:{" "}
-          <a
-            href={`/${company.slug}`}
-            target="_blank"
-            className="text-brand underline"
-          >
-            {partnerSignupUrl}
-          </a>
+        <p className="text-slate-600 text-sm mt-1 flex items-center gap-2 flex-wrap">
+          <span>
+            Your partner signup page:{" "}
+            <a
+              href={`/${company.slug}/signup`}
+              target="_blank"
+              rel="noopener"
+              className="text-brand underline break-all"
+            >
+              {partnerSignupUrl}
+            </a>
+          </span>
+          <CopyLinkButton value={partnerSignupUrl} />
         </p>
       </div>
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Stat label="Total referrals" value={String(totalReferrals)} />
         <Stat label="Active" value={String(activeReferrals)} />
         <Stat label="Jobs sold" value={String(jobsSold)} />
@@ -142,7 +203,165 @@ export default async function CompanyOverviewPage({
             Number(paidPayouts._sum.amount ?? 0),
           )}
         />
+        {/* Network referrals — companies the admin has referred to
+            TradeRefer that are paying. Hidden for comped accounts since
+            they don't earn discounts. Click-through to /company/network
+            for the detail. */}
+        {!company.isComped && (
+          <Link
+            href="/company/network"
+            className="bg-white border border-slate-200 rounded-xl p-4 hover:border-brand transition-colors"
+          >
+            <div className="text-xs uppercase tracking-wider text-slate-500">
+              Network referrals
+            </div>
+            <div className="text-2xl font-bold text-brand mt-1">
+              {referralStanding.qualifyingCount}
+            </div>
+            <div className="text-[11px] text-slate-500 mt-1">
+              {referralStanding.percentOff > 0
+                ? `${referralStanding.percentOff}% off your subscription`
+                : "Refer one to start saving"}
+            </div>
+          </Link>
+        )}
       </div>
+
+      {/* Promote your programme — the public no-signup refer link + a
+          paste-anywhere website badge that links to it. */}
+      <section className="bg-white border border-slate-200 rounded-xl p-5 sm:p-6 space-y-5">
+        <div>
+          <h2 className="text-lg font-semibold text-brand">
+            Get referrals from your website
+          </h2>
+          <p className="text-sm text-slate-600 mt-1">
+            Anyone can refer through your{" "}
+            <a
+              href={`/${company.slug}/refer`}
+              target="_blank"
+              rel="noopener"
+              className="text-brand underline"
+            >
+              Refer &amp; earn link
+            </a>{" "}
+            — no account needed, they only sign up if a referral pays out. Add
+            the badge below to your own site and it links straight there.
+          </p>
+        </div>
+
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wider text-slate-500 mb-2">
+            Preview
+          </p>
+          <div dangerouslySetInnerHTML={{ __html: embedSnippet }} />
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
+              Paste this into your website
+            </p>
+            <CopyButton value={embedSnippet} label="Copy code" />
+          </div>
+          <pre className="bg-slate-900 text-slate-100 text-xs rounded-lg p-4 overflow-x-auto whitespace-pre-wrap break-all">
+            {embedSnippet}
+          </pre>
+          <p className="text-xs text-slate-500 mt-2">
+            Works anywhere you can add HTML — website footer, &ldquo;thank
+            you&rdquo; pages, email signatures. No code skills? Send it to
+            whoever looks after your site.
+          </p>
+        </div>
+
+        <div className="border-t border-slate-100 pt-5">
+          <p className="text-sm font-semibold text-brand">
+            Turn past customers into referrers
+          </p>
+          <p className="text-sm text-slate-600 mt-1">
+            Email or text this link to happy past customers. They get their
+            own personal link to share with friends — no sign-up — and only
+            create an account if a referral pays out.
+          </p>
+          <p className="mt-3 flex items-center gap-2 flex-wrap">
+            <a
+              href={`/${company.slug}/refer-link`}
+              target="_blank"
+              rel="noopener"
+              className="text-brand underline break-all text-sm"
+            >
+              {referrerLinkUrl}
+            </a>
+            <CopyLinkButton value={referrerLinkUrl} />
+          </p>
+        </div>
+      </section>
+
+      {/* Internal-referral indicator. Hidden for comped accounts
+          (they're already free; nothing to discount). Always-visible
+          live status panel — count, discount %, monthly saving — so
+          admins can see their network at a glance from the overview. */}
+      {!company.isComped && (
+        <section className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl p-6 sm:p-7">
+          <div className="flex items-center justify-between gap-3 flex-wrap mb-5">
+            <div>
+              <p className="text-xs uppercase tracking-wider text-amber-400 font-bold mb-1">
+                Refer & save
+              </p>
+              <h2 className="text-xl font-bold leading-snug">
+                {referralStanding.percentOff === 0
+                  ? "Your network — nobody yet"
+                  : referralStanding.percentOff === 100
+                    ? "Your subscription is free thanks to referrals"
+                    : `Your network is saving you ${formatPrice(referralMonthlySaving)}/month`}
+              </h2>
+            </div>
+            <Link
+              href="/company/network"
+              className="bg-amber-500 text-slate-900 font-semibold px-4 py-2 rounded-lg whitespace-nowrap hover:bg-amber-400 text-sm"
+            >
+              View network →
+            </Link>
+          </div>
+
+          {/* Three at-a-glance numbers. Render zeros honestly when
+              nothing's happening yet — drives the user to take action
+              rather than hiding the prompt. */}
+          <div className="grid grid-cols-3 gap-4 mb-5">
+            <ReferralStat
+              label="Active referrals"
+              value={String(referralStanding.qualifyingCount)}
+              hint={
+                referralStanding.tier < 4
+                  ? `${4 - referralStanding.tier} more for free`
+                  : "Capped — refer more to insure"
+              }
+            />
+            <ReferralStat
+              label="Discount"
+              value={`${referralStanding.percentOff}%`}
+              hint="25% per active paying referral"
+              highlight={referralStanding.percentOff > 0}
+            />
+            <ReferralStat
+              label="Saving"
+              value={
+                referralStanding.percentOff > 0
+                  ? `${formatPrice(referralMonthlySaving)}/mo`
+                  : "—"
+              }
+              hint={`off ${formatPrice(monthlyPrice)}`}
+              highlight={referralStanding.percentOff > 0}
+            />
+          </div>
+
+          <p className="text-xs text-slate-400 pt-4 border-t border-white/10">
+            Share your link:{" "}
+            <span className="font-mono text-amber-300 break-all">
+              {referralLink}
+            </span>
+          </p>
+        </section>
+      )}
 
       <section>
         <div className="flex items-center justify-between mb-3">
@@ -177,9 +396,17 @@ export default async function CompanyOverviewPage({
               <tbody className="divide-y divide-slate-100">
                 {recent.map((r) => (
                   <tr key={r.id}>
-                    <td className="px-4 py-3 font-medium">{r.customerName}</td>
+                    <td className="px-4 py-3 font-medium">
+                      {locked ? (
+                        <span className="text-slate-400 italic font-normal text-sm">
+                          Locked — reactivate to view
+                        </span>
+                      ) : (
+                        r.customerName
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-slate-600">
-                      {r.partner.businessName}
+                      {r.partner.businessName || r.partner.fullName}
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={r.status} />
@@ -213,6 +440,37 @@ function Stat({ label, value }: { label: string; value: string }) {
         {label}
       </div>
       <div className="text-2xl font-bold text-brand mt-1">{value}</div>
+    </div>
+  );
+}
+
+/** Inline stat tile used inside the slate-bg referral card. Different
+ *  palette + sizing from the page-level Stat so they don't visually
+ *  clash with the white cards above. */
+function ReferralStat({
+  label,
+  value,
+  hint,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
+        {label}
+      </div>
+      <div
+        className={`text-2xl font-extrabold mt-0.5 ${
+          highlight ? "text-amber-400" : "text-white"
+        }`}
+      >
+        {value}
+      </div>
+      <div className="text-xs text-slate-500 mt-0.5">{hint}</div>
     </div>
   );
 }

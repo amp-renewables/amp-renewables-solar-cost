@@ -18,10 +18,25 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// DEPRECATED — superseded by Membership.role + User.isSuperadmin.
+// Still present because the User.role column hasn't been dropped yet
+// (kept through the multi-org migration so a half-deployed build can't
+// crash on a missing column). Nothing should READ this anymore.
 enum Role {
   SUPERADMIN     // TradeRefer platform admin
   COMPANY_ADMIN  // Owns/runs a Company that pays £99/mo
   PARTNER        // Refers customers under a Company
+}
+
+// What a user IS at a given company. A user can hold one membership per
+// company, and memberships at any number of companies — that's the whole
+// point of the multi-org model. "Sarah refers to AMP as Smith Roofing
+// and to a Manchester installer as herself" is two Membership rows on
+// one User.
+enum MembershipRole {
+  COMPANY_ADMIN    // runs the company's programme
+  BUSINESS_PARTNER // a trade business referring customers (full payout rates)
+  AMBASSADOR       // an individual — past customer, friend (ambassador rates)
 }
 
 enum CompanyStatus {
@@ -57,6 +72,13 @@ enum Channel {
   EMAIL
 }
 
+enum InviteStatus {
+  PENDING   // added to the list, not yet sent
+  SENT      // delivered to the SMS/email provider successfully
+  FAILED    // provider rejected it (bad number, bounce, etc)
+  SIGNED_UP // recipient followed their invite link and created an account
+}
+
 // A paying customer of the TradeRefer platform.
 // Their landing page lives at /<slug> (e.g. /amprenewables).
 model Company {
@@ -72,15 +94,51 @@ model Company {
 
   // Branding
   logoUrl       String?
-  primaryColor  String @default("#1a3c2a")
-  accentColor   String @default("#52b788")
+  // Light/inverse logo for use on dark backgrounds (signup landing left
+  // panel, admin nav, partner nav). If null, those surfaces fall back to
+  // rendering the company name as text in the brand-accent colour.
+  logoUrlLight  String?
+  // Defaults match the TradeRefer platform brand (slate + amber). New
+  // tenants land with a neutral on-brand look until they customise via
+  // /company/settings. AMP Renewables (the original tenant) explicitly
+  // stored its own green values so it's unaffected by changes here.
+  primaryColor  String @default("#1e293b")
+  accentColor   String @default("#f59e0b")
   heroSubheading String? // optional one-liner used on /<slug>
+
+  // Optional custom signature text — the one-liner that appears at the
+  // bottom of every email the company sends, prompting recipients to
+  // sign up as a referral partner. Supports {{payoutTotal}}, {{signupUrl}},
+  // {{companyName}} placeholders. If null, a sensible default is used —
+  // see lib/signature.ts.
+  emailSignature     String?
 
   // Programme config (per-company versions of the old env-var settings)
   services           String[] // ["Solar PV", "Battery Storage", ...]
   payoutAppointment  Decimal  @db.Decimal(10, 2) @default(50)
   payoutJob          Decimal  @db.Decimal(10, 2) @default(250)
   currencySymbol     String   @default("£")
+
+  // Which referrer types the public /<slug>/signup page accepts. Both on
+  // by default — a company that only wants businesses (or only
+  // past-customer ambassadors) can switch one off in settings. The
+  // signup action validates against these server-side, so a crafted POST
+  // can't create a disallowed membership type.
+  //
+  // NB: ambassadors earn the SAME payout rates as businesses — Joe's
+  // call (2026-06-11): the referral is worth the same to the company
+  // either way, and a lower ambassador rate just reads as an insult.
+  acceptsBusinessPartners Boolean @default(true)
+  acceptsAmbassadors      Boolean @default(true)
+
+  // Location for the "programmes near you" suggestions on partner
+  // dashboards. Postcode is what the admin types; lat/lng + district
+  // (e.g. "Sunderland") are geocoded server-side (postcodes.io) at save
+  // time so distance maths never needs a network call at render time.
+  postcode    String?
+  latitude    Float?
+  longitude   Float?
+  geoDistrict String?
 
   // Subscription / status
   status             CompanyStatus @default(TRIAL)
@@ -92,23 +150,121 @@ model Company {
   stripeCustomerId     String? @unique
   stripeSubscriptionId String? @unique
 
+  // ─── Internal referral programme ──────────────────────────────
+  // Who referred this company to TradeRefer (set at signup via
+  // ?ref=<slug>). Null if they came in cold. Self-relation; deleting
+  // the referrer doesn't cascade — we just null out this link so the
+  // referred company stays intact with no upstream credit.
+  referredByCompanyId String?
+  referredBy          Company?  @relation("CompanyReferrals", fields: [referredByCompanyId], references: [id], onDelete: SetNull)
+  referredCompanies   Company[] @relation("CompanyReferrals")
+
+  // Timestamp of the FIRST successful invoice payment. Stays null
+  // through TRIAL, set the moment Stripe fires invoice.payment_succeeded
+  // for the first time. This is the gate that activates the referrer's
+  // 25% discount slice — we don't credit referrers for trial-only
+  // signups, only for ones that converted to paid.
+  referralQualifiedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users     User[]
-  referrals Referral[]
-  templates MessageTemplate[]
+  users          User[]
+  memberships    Membership[]
+  referrals      Referral[]
+  templates      MessageTemplate[]
+  partnerInvites PartnerInvite[]
 
   @@index([status])
+  @@index([referredByCompanyId])
+}
+
+// The join between a User and a Company — what the old User.role +
+// User.companyId pair encoded, but many-per-user. Access control reads
+// the session's ACTIVE membership (Session.activeMembershipId); the org
+// switcher in the nav changes which one that is.
+//
+// Deleting a company cascades its memberships. Deleting a user cascades
+// their memberships (referrals are the durable record, and they hang off
+// User/Company directly).
+model Membership {
+  id        String         @id @default(cuid())
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  role      MembershipRole
+
+  createdAt DateTime @default(now())
+
+  sessions Session[]
+
+  @@unique([userId, companyId]) // one hat per company
+  @@index([companyId, role])
+  @@index([userId])
+}
+
+// A contact a company has invited to become a referral partner — by SMS
+// or email, in bulk from /company/invites. Each invite carries a unique
+// token baked into its signup link so we can attribute conversions
+// ("which of the 50 roofers I texted actually signed up?").
+//
+// PRIVACY: these are contacts the company asserts a business
+// relationship with (confirmed by checkbox at send time). We store the
+// minimum needed to send + display status. No marketing reuse — the
+// platform never contacts these people for its own purposes.
+model PartnerInvite {
+  id        String  @id @default(cuid())
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  name  String?
+  phone String? // E.164-ish, required for SMS channel
+  email String? // required for EMAIL channel
+
+  channel Channel
+  status  InviteStatus @default(PENDING)
+
+  // Unguessable token embedded in the invite link
+  // (/<slug>/signup?invite=<token>). Marks the invite SIGNED_UP when a
+  // partner account is created through it.
+  token String @unique
+
+  // What was actually sent, post-placeholder-interpolation. Kept for
+  // audit ("what did we text this person?") and debugging.
+  sentMessage String?
+  sentAt      DateTime?
+  failReason  String?
+
+  signedUpAt     DateTime?
+  signedUpUserId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId, status])
+  @@index([companyId, createdAt])
 }
 
 model User {
   id             String  @id @default(cuid())
   email          String  @unique
-  hashedPassword String
-  role           Role    @default(PARTNER)
+  // Nullable to support "dormant" referrers created by the Golden Ticket
+  // flow: someone refers via a public link WITHOUT signing up, so a User
+  // is created with no password. null = unclaimed/dormant — they can't log
+  // in until they claim (set a password) when a referral pays out. Every
+  // password-authenticated path must treat null as "no valid credentials".
+  hashedPassword String?
 
-  // SUPERADMIN has no company. COMPANY_ADMIN and PARTNER do.
+  // Platform operator flag (Joe). Orthogonal to memberships — a
+  // superadmin can also hold company memberships and switch between
+  // "Platform" and company contexts in the nav.
+  isSuperadmin Boolean @default(false)
+
+  // DEPRECATED — replaced by Membership rows + isSuperadmin. Columns kept
+  // (unread) until a post-migration cleanup drops them. Don't write to
+  // these; defaults satisfy inserts.
+  role      Role     @default(PARTNER)
   companyId String?
   company   Company? @relation(fields: [companyId], references: [id], onDelete: Restrict)
 
@@ -117,23 +273,60 @@ model User {
   phone        String?
   businessName String?
 
+  // Optional home-base for "programmes near you" suggestions. Set from
+  // dashboard account settings; geocoded like Company.postcode. When
+  // null, suggestions fall back to the location of the partner's first
+  // company (most partners are local to whoever recruited them).
+  postcode  String?
+  latitude  Float?
+  longitude Float?
+
   // Bank details for partner payouts (PARTNER only). Captured in dashboard
   // settings rather than at signup so it doesn't slow the signup flow.
-  // Stored in plain text — fine for sort code / account number under UK
-  // data protection rules; do not add full debit card numbers here.
-  bankAccountName   String?
-  bankSortCode      String?
-  bankAccountNumber String?
+  //
+  // The sort code and account number are encrypted at the application layer
+  // (AES-256-GCM with BANK_ENCRYPTION_KEY, see src/lib/crypto.ts) — what's
+  // stored here is a base64-encoded envelope, not the raw number. The Last2
+  // / Last4 columns store the trailing digits in plaintext so masked admin
+  // views can render "**-**-67 · **** 4321" without paying a decrypt per
+  // row. Last digits alone don't identify an account.
+  bankAccountName        String?
+  bankSortCode           String?  // encrypted envelope
+  bankAccountNumber      String?  // encrypted envelope
+  bankSortCodeLast2      String?  // plaintext, for masked display
+  bankAccountNumberLast4 String?  // plaintext, for masked display
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  referrals      Referral[]
-  sessions       Session[]
-  resetTokens    PasswordResetToken[]
+  memberships        Membership[]
+  referrals          Referral[]
+  sessions           Session[]
+  resetTokens        PasswordResetToken[]
+  bankDetailsViewed  BankDetailsAccess[] @relation("PartnerBankAccess")
+  bankDetailsViews   BankDetailsAccess[] @relation("AdminBankAccess")
 
   @@index([companyId])
   @@index([role])
+}
+
+// Append-only audit log: every time a company admin reveals a partner's
+// full bank details from the masked UI, we record it here. Lets us answer
+// "who has seen my bank details?" for GDPR subject-access requests and
+// detect insider abuse. Never deleted — partner-driven account anonymisation
+// nulls fields rather than removing rows.
+model BankDetailsAccess {
+  id              String   @id @default(cuid())
+  partnerUserId   String
+  partner         User     @relation("PartnerBankAccess", fields: [partnerUserId], references: [id], onDelete: Cascade)
+  viewedByUserId  String
+  viewedBy        User     @relation("AdminBankAccess", fields: [viewedByUserId], references: [id], onDelete: Cascade)
+  viewedAt        DateTime @default(now())
+  // Free-form context for diagnostics, e.g. "payouts page", "partner detail".
+  context         String?
+
+  @@index([partnerUserId, viewedAt])
+  @@index([viewedByUserId, viewedAt])
 }
 
 model Session {
@@ -142,6 +335,14 @@ model Session {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
+
+  // Which of the user's memberships this session is currently acting as
+  // (the "active hat"). Null means no company context — either a
+  // superadmin in Platform view, or a stale/pre-migration session, which
+  // getSessionUser self-heals by adopting the user's first membership.
+  // SetNull (not Cascade): losing a membership must not log you out.
+  activeMembershipId String?
+  activeMembership   Membership? @relation(fields: [activeMembershipId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([expiresAt])
@@ -173,19 +374,40 @@ model Referral {
   partnerId String
   partner   User   @relation(fields: [partnerId], references: [id], onDelete: Restrict)
 
+  // Only name + phone + postcode are required. A tradesman in a van has
+  // the customer's number and roughly where they live — email and full
+  // address are luxuries the company can collect on the follow-up call.
+  // Requiring them was friction that killed mobile submissions.
   customerName  String
   customerPhone String
-  customerEmail String
+  customerEmail String?
 
-  addressLine1 String
+  addressLine1 String?
   addressLine2 String?
-  city         String
+  city         String?
   postcode     String
 
   services String[]
   notes    String?
 
+  // GDPR / data-protection record. The partner ticks a box on the refer
+  // form confirming they have the customer's permission to share their
+  // details with the receiving company. customerConsentConfirmedAt is set
+  // server-side at submission so we have an auditable timestamp; the
+  // boolean is kept for fast filtering. Existing rows pre-dating this
+  // field default to false — meaning we explicitly don't claim consent
+  // we didn't capture.
+  customerConsentConfirmed   Boolean   @default(false)
+  customerConsentConfirmedAt DateTime?
+
   status ReferralStatus @default(SUBMITTED)
+
+  // Soft-archive. Hidden from default /company/referrals view but kept in
+  // the DB (and still visible from /company/payouts if there's money
+  // owed). Restored by setting back to null. Orthogonal to the status
+  // enum — a REJECTED referral is one the customer walked away from; an
+  // ARCHIVED referral is one the admin no longer wants in their face.
+  archivedAt DateTime?
 
   appointmentBookedAt    DateTime?
   appointmentDate        DateTime?
@@ -203,6 +425,7 @@ model Referral {
 
   @@index([companyId, status])
   @@index([companyId, createdAt])
+  @@index([companyId, archivedAt])
   @@index([partnerId])
 }
 
@@ -234,6 +457,10 @@ model Payout {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // One APPOINTMENT + one JOB payout per referral, max. The status-change
+  // action is the primary guarantor; this makes an accidental double
+  // milestone payout a hard DB error rather than a silent double-pay.
+  @@unique([referralId, type])
   @@index([referralId])
   @@index([status])
 }
@@ -253,4 +480,20 @@ model MessageTemplate {
   updatedAt DateTime @updatedAt
 
   @@index([companyId, channel, active, sortOrder])
+}
+
+// Fixed-window rate limiter for unauthenticated auth endpoints (login,
+// forgot-password, signup). One row per (bucket, identifier). Postgres-
+// backed rather than Redis so it works on serverless with no extra infra;
+// at auth volumes the write cost is negligible. Stale rows are reset in
+// place when their window expires, and bulk-pruned by the weekly cron.
+model RateLimit {
+  id          String   @id @default(cuid())
+  bucket      String // e.g. "login", "forgot-password", "signup"
+  identifier  String // usually the caller IP (optionally :email)
+  count       Int      @default(0)
+  windowStart DateTime @default(now())
+
+  @@unique([bucket, identifier])
+  @@index([windowStart])
 }
