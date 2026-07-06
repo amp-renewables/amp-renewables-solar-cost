@@ -17,6 +17,9 @@ import {
   sendNewPartnerSignupNotification,
   sendPartnerWelcomeEmail,
 } from "@/lib/email";
+import { partnerReferralUrl } from "@/lib/partner-link";
+import { sendSms } from "@/lib/sms";
+import { platform } from "@/lib/platform";
 
 const SignupSchema = z
   .object({
@@ -190,9 +193,12 @@ export async function partnerSignupAction(
     }
   }
 
-  // Two emails in parallel: the ops notification to the company admin,
-  // and the welcome to the new partner. Both fire-and-forget — a failed
-  // send never blocks the signup.
+  // Ops notification to the company admin, welcome email to the new
+  // partner, and a text to the partner with their shareable link. All
+  // fire-and-forget — a failed send never blocks the signup. sendSms
+  // no-ops safely if Twilio isn't configured or the number isn't a UK
+  // mobile.
+  const referralUrl = partnerReferralUrl(company.slug, membership.id);
   await Promise.all([
     sendNewPartnerSignupNotification(
       {
@@ -207,7 +213,14 @@ export async function partnerSignupAction(
     sendPartnerWelcomeEmail(
       { email: user.email, fullName: user.fullName },
       company,
+      referralUrl,
     ),
+    user.phone
+      ? sendSms(
+          user.phone,
+          `You're set up with ${company.name} on ${platform.name}. Share this link with customers to refer them and get paid: ${referralUrl} Reply STOP to opt out.`,
+        )
+      : Promise.resolve(),
   ]);
 
   await createSession(user.id, membership.id);
@@ -282,6 +295,12 @@ export async function joinProgrammeAction(
     }
   }
 
+  // getSessionUser() doesn't carry the phone — fetch it just for the SMS.
+  const joiner = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { phone: true },
+  });
+  const referralUrl = partnerReferralUrl(company.slug, membership.id);
   await Promise.all([
     sendNewPartnerSignupNotification(
       {
@@ -296,7 +315,14 @@ export async function joinProgrammeAction(
     sendPartnerWelcomeEmail(
       { email: user.email, fullName: user.fullName },
       company,
+      referralUrl,
     ),
+    joiner?.phone
+      ? sendSms(
+          joiner.phone,
+          `You're set up with ${company.name} on ${platform.name}. Share this link with customers to refer them and get paid: ${referralUrl} Reply STOP to opt out.`,
+        )
+      : Promise.resolve(),
   ]);
 
   await setActiveMembership(membership.id);

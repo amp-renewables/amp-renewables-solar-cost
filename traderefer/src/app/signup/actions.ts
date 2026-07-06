@@ -11,6 +11,7 @@ import {
   sendCompanyWelcomeEmail,
   sendNewCompanySignupNotification,
 } from "@/lib/email";
+import { sendSms } from "@/lib/sms";
 
 const SignupSchema = z.object({
   companyName: z.string().trim().min(2, "Please enter your company name"),
@@ -180,11 +181,22 @@ export async function companySignupAction(
     },
   );
 
-  // Both emails are fire-and-forget — a failing send must never block signup.
-  // Run them in parallel so we don't add 2× round-trip latency to the flow.
+  // Emails + a welcome text, all fire-and-forget — a failing send must
+  // never block signup. Run in parallel so we don't stack round-trips.
+  // The text carries the two links the admin acts on: the partner signup
+  // link (to start getting referrals) and the company referral link (to
+  // cut their own fee). sendSms no-ops if Twilio isn't set up / non-mobile.
+  const base = process.env.APP_URL || platform.url;
+  const adminFirstName = data.ownerName.split(" ")[0] || data.ownerName;
   await Promise.all([
     sendNewCompanySignupNotification(company, data.ownerName),
     sendCompanyWelcomeEmail(company, data.ownerName),
+    company.contactPhone
+      ? sendSms(
+          company.contactPhone,
+          `Welcome to ${platform.name}, ${adminFirstName}. Share your partner signup link with tradesmen to get referrals: ${base}/${company.slug}/signup — and refer another business for 25% off your subscription: ${base}/signup?ref=${company.slug} Reply STOP to opt out.`,
+        )
+      : Promise.resolve(),
   ]);
 
   // Sign them in acting as the new company's admin. For an existing

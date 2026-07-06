@@ -9,6 +9,8 @@ import {
 import { platform, formatPrice } from "@/lib/platform";
 import { summarisePayouts } from "@/lib/payouts";
 import { StatusBadge } from "@/components/StatusBadge";
+import { CopyLinkButton } from "@/components/CopyLinkButton";
+import { partnerReferralUrl } from "@/lib/partner-link";
 import { NearbyProgrammes } from "./NearbyProgrammes";
 
 export default async function DashboardOverviewPage() {
@@ -70,6 +72,28 @@ export default async function DashboardOverviewPage() {
           Refer a customer →
         </Link>
       </div>
+
+      {/* The partner's own shareable link — send it to customers, they
+          self-submit, the referral is credited here. The alternative to
+          adding a customer yourself via the refer form. */}
+      {user.membershipId && (
+        <div className="bg-white border border-slate-200 rounded-xl p-5">
+          <p className="font-semibold text-brand">Your referral link</p>
+          <p className="text-sm text-slate-600 mt-1">
+            Send this to customers — by text, WhatsApp or email. They fill in
+            their own details, {company.name} calls them, and you get paid. No
+            need to collect anything yourself.
+          </p>
+          <div className="mt-3 flex items-center gap-2 flex-wrap">
+            <code className="text-sm bg-slate-100 text-slate-700 rounded-lg px-3 py-2 break-all">
+              {partnerReferralUrl(company.slug, user.membershipId)}
+            </code>
+            <CopyLinkButton
+              value={partnerReferralUrl(company.slug, user.membershipId)}
+            />
+          </div>
+        </div>
+      )}
 
       {!hasBankDetails && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 flex items-start gap-3 flex-wrap">

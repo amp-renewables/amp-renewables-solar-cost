@@ -321,6 +321,9 @@ export async function sendNewPartnerSignupNotification(
 export async function sendPartnerWelcomeEmail(
   partner: { email: string; fullName: string | null },
   company: CompanyPayload,
+  // The partner's own customer-facing referral link — the main new way to
+  // refer: share it, the customer self-submits, the partner gets paid.
+  referralUrl: string,
 ): Promise<void> {
   if (!resend) {
     console.warn(
@@ -366,13 +369,24 @@ export async function sendPartnerWelcomeEmail(
             : `<tr><td style="padding:4px 16px 4px 0;color:#888;">Job sells</td><td style="padding:4px 0;font-weight:600;color:${company.primaryColor};">${esc(job)}</td></tr>`
         }
       </table>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin:20px 0;">
+        <p style="margin:0 0 6px;font-weight:600;color:${company.primaryColor};">Your referral link — share it with customers</p>
+        <p style="margin:0 0 10px;color:#444;font-size:14px;line-height:1.5;">
+          Send this to anyone who might want ${esc(company.name)}'s services —
+          by text, WhatsApp, email, however you like. They pop in their own
+          details, ${esc(company.name)} calls them, and you get paid. Nothing
+          for you to collect.
+        </p>
+        <a href="${referralUrl}" style="color:${company.primaryColor};font-weight:600;word-break:break-all;">${esc(referralUrl)}</a>
+      </div>
       <p style="color:#444;line-height:1.5;">
-        Two things to do now:
+        A couple of things to know:
       </p>
       <ol style="color:#444;font-size:14px;line-height:1.6;padding-left:20px;">
         <li>
-          <strong>Send your first referral</strong> — name, mobile and
-          postcode is all it takes. Takes under a minute.
+          <strong>Prefer to add a customer yourself?</strong> You can — just
+          their name, mobile and postcode. Use your link or the form,
+          whichever suits.
         </li>
         <li>
           <strong>Add your bank details</strong> in your account settings
@@ -406,8 +420,12 @@ export async function sendPartnerWelcomeEmail(
         ]
       : [`Job sells:           ${job}`]),
     ``,
-    `Two things to do now:`,
-    `1. Send your first referral — name, mobile and postcode is all it takes: ${referLink}`,
+    `YOUR REFERRAL LINK — share it with customers:`,
+    referralUrl,
+    `Send it by text, WhatsApp or email. They add their own details, ${company.name} calls them, you get paid.`,
+    ``,
+    `A couple of things to know:`,
+    `1. Prefer to add a customer yourself? Use your link or the form: ${referLink}`,
     `2. Add your bank details so payouts can reach you: ${settingsLink}`,
     ``,
     `Questions? Just reply to this email.`,
@@ -712,6 +730,9 @@ export async function sendCompanyWelcomeEmail(
   const signupLink = `${APP_URL}/${company.slug}/signup`;
   const loginLink = `${APP_URL}/login`;
   const settingsLink = `${APP_URL}/company/settings`;
+  // The company-to-company referral link: refer another trade business to
+  // TradeRefer and knock money off your own subscription.
+  const referralLink = `${APP_URL}/signup?ref=${company.slug}`;
 
   const trialEndsFormatted = company.trialEndsAt
     ? company.trialEndsAt.toLocaleDateString("en-GB", {
@@ -741,6 +762,10 @@ export async function sendCompanyWelcomeEmail(
         <tr>
           <td style="padding:6px 12px 6px 0;color:#888;vertical-align:top;">Partner signup link</td>
           <td style="padding:6px 0;"><a href="${signupLink}" style="color:${platform.colors.primary};word-break:break-all;font-weight:500;">${esc(signupLink)}</a><br/><span style="color:#999;font-size:12px;">Send this to the tradesmen, past customers and contacts you want referrals from</span></td>
+        </tr>
+        <tr>
+          <td style="padding:6px 12px 6px 0;color:#888;vertical-align:top;">Refer a business</td>
+          <td style="padding:6px 0;"><a href="${referralLink}" style="color:${platform.colors.primary};word-break:break-all;font-weight:500;">${esc(referralLink)}</a><br/><span style="color:#999;font-size:12px;">Know another trade business? Refer them to ${esc(platform.name)} and take 25% off your own subscription for as long as they stay — refer four and yours is free</span></td>
         </tr>
         <tr>
           <td style="padding:6px 12px 6px 0;color:#888;vertical-align:top;">Log in</td>
@@ -786,6 +811,7 @@ export async function sendCompanyWelcomeEmail(
     `YOUR LINKS`,
     `Landing page:        ${landingLink}`,
     `Partner signup link: ${signupLink}`,
+    `Refer a business:    ${referralLink}  (25% off your subscription per referral; four = free)`,
     `Log in:              ${loginLink}`,
     ``,
     trialEndsFormatted
