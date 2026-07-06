@@ -185,6 +185,19 @@ export default async function CompanyLandingPage({
               I already have an account
             </Link>
           </div>
+
+          {/* Low-friction path for casual referrers: refer someone in a
+              minute without signing up (Golden Ticket). Sits under the
+              partner CTAs as the lighter option. */}
+          <p className="mt-6 text-sm text-white/80">
+            Just want to refer someone?{" "}
+            <Link
+              href={`/${company.slug}/refer`}
+              className="font-semibold text-white underline"
+            >
+              Do it in a minute — no sign-up →
+            </Link>
+          </p>
         </div>
       </section>
 

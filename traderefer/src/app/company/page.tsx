@@ -7,6 +7,7 @@ import { platform, formatPrice } from "@/lib/platform";
 import { getReferralStanding } from "@/lib/referral";
 import { StatusBadge } from "@/components/StatusBadge";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
+import { CopyButton } from "@/components/CopyButton";
 
 export default async function CompanyOverviewPage() {
   const user = await requireCompanyAdmin();
@@ -72,6 +73,21 @@ export default async function CompanyOverviewPage() {
   const referralMonthlySaving =
     (monthlyPrice * referralStanding.percentOff) / 100;
   const referralLink = `${platform.url}/signup?ref=${company.slug}`;
+
+  // The public "refer & earn" (Golden Ticket) link + a paste-anywhere HTML
+  // badge that links to it — like Checkatrade's embeddable badge. Inline
+  // styles only so it renders identically on any site with no dependencies.
+  // primaryColor is hex-validated on save; name is escaped for safety.
+  const referUrl = `${platform.url}/${company.slug}/refer`;
+  const escName = company.name
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+  const badgeInner = company.logoUrl
+    ? `<img src="${company.logoUrl}" alt="${escName}" style="height:26px;width:auto;display:block" />`
+    : `<span style="color:${company.primaryColor};font-weight:800;font-size:15px">${escName}</span>`;
+  const embedSnippet = `<a href="${referUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:10px;background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;padding:10px 14px;text-decoration:none;font-family:system-ui,-apple-system,sans-serif;box-shadow:0 1px 2px rgba(0,0,0,0.05)">${badgeInner}<span style="color:${company.primaryColor};font-weight:700;font-size:14px;white-space:nowrap">Refer &amp; earn &rarr;</span></a>`;
   const trialDaysLeft =
     company.status === "TRIAL" && company.trialEndsAt
       ? Math.max(
@@ -206,6 +222,53 @@ export default async function CompanyOverviewPage() {
           </Link>
         )}
       </div>
+
+      {/* Promote your programme — the public no-signup refer link + a
+          paste-anywhere website badge that links to it. */}
+      <section className="bg-white border border-slate-200 rounded-xl p-5 sm:p-6 space-y-5">
+        <div>
+          <h2 className="text-lg font-semibold text-brand">
+            Get referrals from your website
+          </h2>
+          <p className="text-sm text-slate-600 mt-1">
+            Anyone can refer through your{" "}
+            <a
+              href={`/${company.slug}/refer`}
+              target="_blank"
+              rel="noopener"
+              className="text-brand underline"
+            >
+              Refer &amp; earn link
+            </a>{" "}
+            — no account needed, they only sign up if a referral pays out. Add
+            the badge below to your own site and it links straight there.
+          </p>
+        </div>
+
+        <div>
+          <p className="text-xs font-medium uppercase tracking-wider text-slate-500 mb-2">
+            Preview
+          </p>
+          <div dangerouslySetInnerHTML={{ __html: embedSnippet }} />
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
+              Paste this into your website
+            </p>
+            <CopyButton value={embedSnippet} label="Copy code" />
+          </div>
+          <pre className="bg-slate-900 text-slate-100 text-xs rounded-lg p-4 overflow-x-auto whitespace-pre-wrap break-all">
+            {embedSnippet}
+          </pre>
+          <p className="text-xs text-slate-500 mt-2">
+            Works anywhere you can add HTML — website footer, &ldquo;thank
+            you&rdquo; pages, email signatures. No code skills? Send it to
+            whoever looks after your site.
+          </p>
+        </div>
+      </section>
 
       {/* Internal-referral indicator. Hidden for comped accounts
           (they're already free; nothing to discount). Always-visible
