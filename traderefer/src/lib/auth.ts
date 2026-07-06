@@ -26,8 +26,12 @@ export async function hashPassword(plain: string): Promise<string> {
 
 export async function verifyPassword(
   plain: string,
-  hashed: string,
+  hashed: string | null | undefined,
 ): Promise<boolean> {
+  // A dormant (unclaimed) referrer has no password hash — no password can
+  // ever match, so authentication must fail closed rather than let
+  // bcrypt.compare throw on a null hash.
+  if (!hashed) return false;
   return bcrypt.compare(plain, hashed);
 }
 

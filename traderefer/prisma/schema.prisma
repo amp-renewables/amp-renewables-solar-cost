@@ -249,7 +249,12 @@ model PartnerInvite {
 model User {
   id             String  @id @default(cuid())
   email          String  @unique
-  hashedPassword String
+  // Nullable to support "dormant" referrers created by the Golden Ticket
+  // flow: someone refers via a public link WITHOUT signing up, so a User
+  // is created with no password. null = unclaimed/dormant — they can't log
+  // in until they claim (set a password) when a referral pays out. Every
+  // password-authenticated path must treat null as "no valid credentials".
+  hashedPassword String?
 
   // Platform operator flag (Joe). Orthogonal to memberships — a
   // superadmin can also hold company memberships and switch between

@@ -57,6 +57,15 @@ export async function loginAction(
   if (!user) {
     return { formError: "Email or password is incorrect." };
   }
+  // Dormant referrer (referred via a Golden Ticket link but never claimed)
+  // — no password is set. Point them at the way to set one rather than
+  // returning a confusing "incorrect password".
+  if (!user.hashedPassword) {
+    return {
+      formError:
+        "You haven't set a password yet. If you've referred someone, check your email or texts for a link to claim your account — or use ‘Forgot your password?’ below to set one.",
+    };
+  }
   const ok = await verifyPassword(password, user.hashedPassword);
   if (!ok) {
     return { formError: "Email or password is incorrect." };

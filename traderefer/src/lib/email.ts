@@ -513,6 +513,161 @@ export async function sendInboundSmsForwardEmail(
 }
 
 /**
+ * Goes to a GOLDEN-TICKET referrer the instant they refer someone via the
+ * public link — before they have any TradeRefer account. Confirms it's
+ * logged, sets the expectation of a reward, and makes clear there's
+ * nothing to do yet (they'll get a claim link if it pays out). Branded as
+ * the company. `referrerName` may be null (we greet generically then).
+ */
+export async function sendReferrerReferralConfirmation(
+  referrer: { email: string; fullName: string | null },
+  company: CompanyPayload,
+  details: { customerName: string; potentialTotal: number },
+): Promise<void> {
+  if (!resend) {
+    console.warn(
+      `[email] no RESEND_API_KEY — referrer confirmation for ${referrer.email} skipped`,
+    );
+    return;
+  }
+
+  const firstName = referrer.fullName?.trim().split(/\s+/)[0] || "there";
+  const total = formatCompanyMoney(company, details.potentialTotal);
+  const fromDisplay = company.name.replace(/["<>]/g, "");
+
+  const subject = `Thanks for referring ${details.customerName} to ${company.name}`;
+
+  const html = `
+    <div style="font-family:system-ui,sans-serif;color:#222;max-width:560px;">
+      <h2 style="color:${company.primaryColor};margin-bottom:8px;">
+        Thanks, ${esc(firstName)} — your referral is in
+      </h2>
+      <p style="color:#444;line-height:1.5;">
+        You've referred <strong>${esc(details.customerName)}</strong> to
+        <strong>${esc(company.name)}</strong>. They'll be in touch with them
+        to arrange a free survey.
+      </p>
+      <p style="color:#444;line-height:1.5;">
+        If it goes ahead, <strong>you earn up to ${esc(total)}</strong>.
+        There's nothing to do right now — no account, no forms. The moment
+        there's money to pay you, we'll send you a link to claim it and add
+        your bank details. That's the only sign-up you'll ever need, and
+        only once you've actually earned.
+      </p>
+      <p style="margin-top:28px;color:#999;font-size:12px;">
+        Questions? Just reply to this email.
+      </p>
+    </div>
+  `;
+
+  const text = [
+    `Thanks, ${firstName} — your referral is in`,
+    ``,
+    `You've referred ${details.customerName} to ${company.name}. They'll be in touch to arrange a free survey.`,
+    ``,
+    `If it goes ahead, you earn up to ${total}. Nothing to do right now — no account, no forms. The moment there's money to pay you, we'll send a link to claim it and add your bank details. That's the only sign-up you'll ever need, and only once you've earned.`,
+    ``,
+    `Questions? Just reply to this email.`,
+  ].join("\n");
+
+  try {
+    await resend.emails.send({
+      from: `${fromDisplay} <${FROM_EMAIL}>`,
+      to: referrer.email,
+      replyTo: company.contactEmail,
+      subject,
+      html,
+      text,
+    });
+  } catch (err) {
+    console.error("[email] referrer confirmation failed:", err);
+  }
+}
+
+/**
+ * The pay-off of the Golden Ticket flow: a DORMANT referrer's referral has
+ * earned them money, so now — and only now — we ask them to set up. One
+ * link: set a password + add bank details, and the reward is theirs. This
+ * is the single sign-up moment the whole low-friction model defers to.
+ * Branded as the company.
+ */
+export async function sendClaimRewardEmail(
+  referrer: { email: string; fullName: string | null },
+  company: CompanyPayload,
+  amounts: { justEarned: number; totalPending: number },
+  claimUrl: string,
+): Promise<void> {
+  if (!resend) {
+    console.warn(
+      `[email] no RESEND_API_KEY — claim-reward email for ${referrer.email} skipped`,
+    );
+    return;
+  }
+
+  const firstName = referrer.fullName?.trim().split(/\s+/)[0] || "there";
+  const justEarned = formatCompanyMoney(company, amounts.justEarned);
+  const totalPending = formatCompanyMoney(company, amounts.totalPending);
+  const fromDisplay = company.name.replace(/["<>]/g, "");
+
+  const subject = `You've earned ${justEarned} from ${company.name} — claim it`;
+
+  const html = `
+    <div style="font-family:system-ui,sans-serif;color:#222;max-width:560px;">
+      <h2 style="color:${company.primaryColor};margin-bottom:8px;">
+        Your referral paid off, ${esc(firstName)}
+      </h2>
+      <p style="color:#444;line-height:1.5;">
+        Someone you referred to <strong>${esc(company.name)}</strong> has gone
+        ahead, which means you've earned <strong>${esc(justEarned)}</strong>${
+          amounts.totalPending > amounts.justEarned
+            ? ` (<strong>${esc(totalPending)}</strong> waiting for you in total)`
+            : ""
+        }.
+      </p>
+      <p style="color:#444;line-height:1.5;">
+        To collect it, set up your account and add your bank details — takes a
+        minute. This is the only sign-up you need, and you're doing it with
+        money already waiting.
+      </p>
+      <p style="margin-top:20px;">
+        <a href="${claimUrl}" style="background:${company.primaryColor};color:#fff;padding:11px 22px;border-radius:6px;text-decoration:none;font-weight:500;display:inline-block;">Claim your ${esc(justEarned)}</a>
+      </p>
+      <p style="color:#666;font-size:13px;margin-top:16px;">
+        Or paste this link: <span style="word-break:break-all;">${claimUrl}</span>
+      </p>
+      <p style="margin-top:24px;color:#999;font-size:12px;">
+        Your bank details are encrypted the moment you save them and only
+        ${esc(company.name)} can see them. Questions? Just reply to this email.
+      </p>
+    </div>
+  `;
+
+  const text = [
+    `Your referral paid off, ${firstName}`,
+    ``,
+    `Someone you referred to ${company.name} has gone ahead — you've earned ${justEarned}${amounts.totalPending > amounts.justEarned ? ` (${totalPending} waiting in total)` : ""}.`,
+    ``,
+    `Set up your account and add your bank details to collect it — the only sign-up you need, with money already waiting:`,
+    claimUrl,
+    ``,
+    `Your bank details are encrypted on save and only ${company.name} can see them. Questions? Just reply to this email.`,
+  ].join("\n");
+
+  try {
+    await resend.emails.send({
+      from: `${fromDisplay} <${FROM_EMAIL}>`,
+      to: referrer.email,
+      replyTo: company.contactEmail,
+      subject,
+      html,
+      text,
+    });
+  } catch (err) {
+    console.error("[email] claim-reward email failed:", err);
+  }
+}
+
+/**
  * Goes to a PARTNER when a COMPANY_ADMIN logs a lead on their behalf —
  * e.g. a referral the partner sent by WhatsApp or phone rather than
  * through the app. Reassures them it's captured and they'll be paid as it

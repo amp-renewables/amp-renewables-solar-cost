@@ -7,8 +7,11 @@ import { prisma } from "@/lib/db";
 import { requireCompanyAdmin } from "@/lib/auth";
 import { assertCompanyCanWriteById } from "@/lib/stripe";
 import { expectedPayoutsForStatus } from "@/lib/payouts";
-import { sendBankDetailsNeededEmail } from "@/lib/email";
+import { sendBankDetailsNeededEmail, sendClaimRewardEmail } from "@/lib/email";
+import { sendSms } from "@/lib/sms";
+import { platform } from "@/lib/platform";
 import type { ReferralStatus } from "@prisma/client";
+import crypto from "crypto";
 
 const StatusSchema = z.object({
   referralId: z.string().min(1),
@@ -160,11 +163,15 @@ export async function updateReferralStatusAction(formData: FormData) {
         select: {
           email: true,
           fullName: true,
+          phone: true,
+          hashedPassword: true,
           bankSortCode: true,
           bankAccountNumber: true,
         },
       });
-      if (partner && (!partner.bankSortCode || !partner.bankAccountNumber)) {
+      const needsBank =
+        partner && (!partner.bankSortCode || !partner.bankAccountNumber);
+      if (partner && needsBank) {
         const pendingAgg = await prisma.payout.aggregate({
           _sum: { amount: true },
           where: {
@@ -178,14 +185,53 @@ export async function updateReferralStatusAction(formData: FormData) {
             },
           },
         });
-        await sendBankDetailsNeededEmail(
-          { email: partner.email, fullName: partner.fullName },
-          existing.company,
-          {
-            justEarned: newlyPendingAmount,
-            totalPending: Number(pendingAgg._sum.amount ?? 0),
-          },
-        );
+        const amounts = {
+          justEarned: newlyPendingAmount,
+          totalPending: Number(pendingAgg._sum.amount ?? 0),
+        };
+
+        if (!partner.hashedPassword) {
+          // Dormant Golden-Ticket referrer — they've never signed up. This
+          // is the claim moment: mint a set-password token (30-day window,
+          // generous because a reward-claim can sit a while) and send the
+          // claim link by email + text. Setting a password activates the
+          // account; the claim page nudges them to add bank details.
+          const rawToken = crypto.randomBytes(32).toString("base64url");
+          const hashedToken = crypto
+            .createHash("sha256")
+            .update(rawToken)
+            .digest("hex");
+          await prisma.passwordResetToken.create({
+            data: {
+              userId: existing.partnerId,
+              hashedToken,
+              expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+            },
+          });
+          const base = process.env.APP_URL || platform.url;
+          const claimUrl = `${base}/reset-password?token=${rawToken}`;
+          await Promise.all([
+            sendClaimRewardEmail(
+              { email: partner.email, fullName: partner.fullName },
+              existing.company,
+              amounts,
+              claimUrl,
+            ),
+            partner.phone
+              ? sendSms(
+                  partner.phone,
+                  `Good news — your referral to ${existing.company.name} paid off. Claim your reward here: ${claimUrl} Reply STOP to opt out.`,
+                )
+              : Promise.resolve(),
+          ]);
+        } else {
+          // Claimed partner who just hasn't added bank details yet.
+          await sendBankDetailsNeededEmail(
+            { email: partner.email, fullName: partner.fullName },
+            existing.company,
+            amounts,
+          );
+        }
       }
     } catch (err) {
       console.error("[updateReferralStatusAction] bank nudge failed:", err);
