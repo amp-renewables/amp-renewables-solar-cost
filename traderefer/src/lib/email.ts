@@ -585,6 +585,78 @@ export async function sendReferrerReferralConfirmation(
 }
 
 /**
+ * Delivers a referrer their own personal, shareable referral link — sent
+ * the moment they request one (no account yet). They forward this to
+ * friends; whoever fills it in is credited to them. Branded as the company.
+ */
+export async function sendReferrerLinkEmail(
+  referrer: { email: string; fullName: string | null },
+  company: CompanyPayload,
+  details: { referUrl: string; potentialTotal: number },
+): Promise<void> {
+  if (!resend) {
+    console.warn(
+      `[email] no RESEND_API_KEY — referrer link email for ${referrer.email} skipped`,
+    );
+    return;
+  }
+
+  const firstName = referrer.fullName?.trim().split(/\s+/)[0] || "there";
+  const total = formatCompanyMoney(company, details.potentialTotal);
+  const fromDisplay = company.name.replace(/["<>]/g, "");
+  const subject = `Your ${company.name} referral link — share it and earn up to ${total}`;
+
+  const html = `
+    <div style="font-family:system-ui,sans-serif;color:#222;max-width:560px;">
+      <h2 style="color:${company.primaryColor};margin-bottom:8px;">
+        Here's your referral link, ${esc(firstName)}
+      </h2>
+      <p style="color:#444;line-height:1.5;">
+        Send this to anyone who might want <strong>${esc(company.name)}</strong>'s
+        services — by text, WhatsApp, however you like. They fill in their
+        details, ${esc(company.name)} takes it from there, and if it goes
+        ahead <strong>you earn up to ${esc(total)}</strong>.
+      </p>
+      <p style="margin:20px 0;">
+        <a href="${details.referUrl}" style="color:${company.primaryColor};font-weight:700;word-break:break-all;">${esc(details.referUrl)}</a>
+      </p>
+      <p style="color:#444;line-height:1.5;">
+        Nothing else to do for now — no account needed. The moment a referral
+        pays out, we'll send you a link to claim your reward and add your bank
+        details. That's the only sign-up, and only once you've earned.
+      </p>
+      <p style="margin-top:28px;color:#999;font-size:12px;">
+        Questions? Just reply to this email.
+      </p>
+    </div>
+  `;
+
+  const text = [
+    `Here's your referral link, ${firstName}`,
+    ``,
+    `Share it with anyone who might want ${company.name}'s services. They fill in their details and if it goes ahead you earn up to ${total}:`,
+    details.referUrl,
+    ``,
+    `No account needed for now. When a referral pays out we'll send you a link to claim your reward and add your bank details — the only sign-up, and only once you've earned.`,
+    ``,
+    `Questions? Just reply to this email.`,
+  ].join("\n");
+
+  try {
+    await resend.emails.send({
+      from: `${fromDisplay} <${FROM_EMAIL}>`,
+      to: referrer.email,
+      replyTo: company.contactEmail,
+      subject,
+      html,
+      text,
+    });
+  } catch (err) {
+    console.error("[email] referrer link email failed:", err);
+  }
+}
+
+/**
  * The pay-off of the Golden Ticket flow: a DORMANT referrer's referral has
  * earned them money, so now — and only now — we ask them to set up. One
  * link: set a password + add bank details, and the reward is theirs. This

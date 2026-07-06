@@ -79,6 +79,10 @@ export default async function CompanyOverviewPage() {
   // styles only so it renders identically on any site with no dependencies.
   // primaryColor is hex-validated on save; name is escaped for safety.
   const referUrl = `${platform.url}/${company.slug}/refer`;
+  // Send this to past customers/advocates — they get their OWN shareable
+  // link (no signup) to forward on. Whoever fills in their link is credited
+  // to them; they only sign up if it pays out.
+  const referrerLinkUrl = `${platform.url}/${company.slug}/refer-link`;
   const escName = company.name
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -266,6 +270,28 @@ export default async function CompanyOverviewPage() {
             Works anywhere you can add HTML — website footer, &ldquo;thank
             you&rdquo; pages, email signatures. No code skills? Send it to
             whoever looks after your site.
+          </p>
+        </div>
+
+        <div className="border-t border-slate-100 pt-5">
+          <p className="text-sm font-semibold text-brand">
+            Turn past customers into referrers
+          </p>
+          <p className="text-sm text-slate-600 mt-1">
+            Email or text this link to happy past customers. They get their
+            own personal link to share with friends — no sign-up — and only
+            create an account if a referral pays out.
+          </p>
+          <p className="mt-3 flex items-center gap-2 flex-wrap">
+            <a
+              href={`/${company.slug}/refer-link`}
+              target="_blank"
+              rel="noopener"
+              className="text-brand underline break-all text-sm"
+            >
+              {referrerLinkUrl}
+            </a>
+            <CopyLinkButton value={referrerLinkUrl} />
           </p>
         </div>
       </section>
